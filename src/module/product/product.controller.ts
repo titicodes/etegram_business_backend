@@ -19,13 +19,25 @@ import { Product } from './schema/product.schema';
 export class ProductController {
   constructor(private readonly productService: ProductService) { }
 
-  @Get()
-  async getProducts(
-    @Query() filterProductDTO: FilterProductDTO,
-  ): Promise<Product[]> {
+  /**
+   * 🔍 Search products using name, category, or keyword
+   */
+  @Get('search')
+  async searchProducts(@Query() filterProductDTO: FilterProductDTO): Promise<Product[]> {
     return this.productService.getFilteredProducts(filterProductDTO);
   }
 
+  /**
+   * 📦 Get all products with pagination
+   */
+  @Get('all')
+  async findAll(@Query('page') page: number = 1, @Query('limit') limit: number = 10) {
+    return this.productService.findAll(page, limit);
+  }
+
+  /**
+   * 🆔 Get a single product by ID
+   */
   @Get(':id')
   async getProduct(@Param('id') id: string): Promise<Product> {
     const product = await this.productService.findOne(id);
@@ -33,39 +45,59 @@ export class ProductController {
     return product;
   }
 
+  /**
+   * ➕ Add a new product (Scanning required for new products)
+   */
   @Post()
-  async createProduct(
-    @Body() createProductDto: CreateProductDto,
-  ): Promise<Product> {
+  async createProduct(@Body() createProductDto: CreateProductDto): Promise<Product> {
     return this.productService.addProduct(createProductDto);
   }
 
+  /**
+   * ✏️ Update an existing product (Optional when supplying more stock)
+   */
   @Put(':id')
-  async updateProduct(
-    @Param('id') id: string,
-    @Body() updateProductDto: UpdateProductDto,
-  ): Promise<Product> {
+  async updateProduct(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto): Promise<Product> {
     return this.productService.updateProduct(id, updateProductDto);
   }
 
+  /**
+   * ❌ Delete a product
+   */
   @Delete(':id')
   async deleteProduct(@Param('id') id: string): Promise<{ deleted: boolean }> {
     return this.productService.deleteProduct(id);
   }
 
-  @Post('scan')
-  async scanAndAddProduct(
-    @Body() createProductDto: CreateProductDto,
-  ): Promise<Product> {
+  /**
+   * 🚀 Supply an existing product (Increase stock & optionally update details)
+   * If the product doesn't exist, the supplier must scan and add a new one.
+   */
+  @Post('supply')
+  async supplyProduct(@Body() createProductDto: CreateProductDto): Promise<Product> {
+    return this.productService.supplyProduct(createProductDto);
+  }
+
+  /**
+   * 📷 Scan & Add a new product if it does not exist in the search
+   */
+  @Post('scan-and-add')
+  async scanAndAddProduct(@Body() createProductDto: CreateProductDto): Promise<Product> {
     return this.productService.scanAndAddProduct(createProductDto);
   }
 
   @Get()
-  async findAll(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
-  ) {
-    return this.productService.findAll(page, limit);
+  getAllProducts(@Query('page') page: number, @Query('limit') limit: number) {
+    return this.productService.getAllProducts(page, limit);
   }
 
+  @Get('expiring')
+  getExpiringProducts() {
+    return this.productService.getExpiringProducts();
+  }
+
+  @Get('low-stock')
+  getLowStockProducts() {
+    return this.productService.getLowStockProducts();
+  }
 }

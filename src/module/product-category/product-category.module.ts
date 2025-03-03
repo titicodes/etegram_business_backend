@@ -7,6 +7,7 @@ import {
   ProductCategory,
   ProductCategorySchema,
 } from './schema/product-category.schema';
+import { ProductCategoriesController } from './product-category.controller';
 
 @Module({
   imports: [
@@ -14,7 +15,7 @@ import {
       { name: ProductCategory.name, schema: ProductCategorySchema },
     ]),
   ],
-  controllers: [],
+  controllers: [ProductCategoriesController],
   providers: [ProductCategoriesService, ProductCategoriesRepository], // ✅ Move repository here
   exports: [ProductCategoriesService, ProductCategoriesRepository],
 })

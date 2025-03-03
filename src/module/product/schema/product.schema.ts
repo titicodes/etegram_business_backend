@@ -32,10 +32,31 @@ export class Product {
   @Prop({ type: Types.ObjectId, ref: 'UnitOfMeasure' }) // Use ObjectId and reference
   unitId: string;
 
-  @Prop({ required: true, autoIncrement: true })
-  productId: number;
+  // @Prop({ required: true, autoIncrement: true })
+  // productId: number;
 
-  @Prop({ required: true, default: 0 })
+  @Prop({ required: false, default: 0 })
   stock: number;
+
+  @Prop({ required: false })
+  size: string;
+
+  @Prop({ required: false })
+  totalQuantity: number;
+
+  @Prop({ required: false })
+  totalCost: number;
+
+  @Prop({ required: false })
+  unitPrice: number;
+
+  @Prop({ required: false })
+  minQuantity: number;
+
+  @Prop({ required: false })
+  expiryDate: string;
+
+  @Prop({ required: false })
+  supplyTo?: string;
 }
 export const ProductSchema = SchemaFactory.createForClass(Product);

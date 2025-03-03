@@ -33,7 +33,7 @@ async function bootstrap() {
    * Set global prefix for routes
    */
   app.setGlobalPrefix('/api');
-
+  
   /**
    *  Set global pipes
    */
@@ -47,10 +47,10 @@ async function bootstrap() {
 
    // Swagger setup
    const config = new DocumentBuilder()
-   .setTitle('BILL REMIT')
+   .setTitle('Etegram Businuess')
    .setDescription('Etegram Business')
    .setVersion('1.0')
-   .addTag('BILL REMIT API')
+   .addTag('Etegram Business API')
    .addBearerAuth(
      {
        type: 'http',
