@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import mongoose, { Document } from 'mongoose';
 import { Interest } from 'src/module/interest/schemas/interest.schema';
+import { Store } from 'src/module/store/schema/store.schema';
 
 @Schema({ timestamps: true })
 export class User {
@@ -25,9 +26,6 @@ export class User {
   @Prop({ default: false })
   isAdmin: boolean;
 
-  @Prop({
-    type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'SmileEntity' }],
-  })
   @Prop({ type: Number, default: 0 })
   balance: number;
 
@@ -37,8 +35,17 @@ export class User {
   @Prop({ select: false })
   password: string;
 
-  //   @Prop({ enum: UserRoleEnum, default: UserRoleEnum.USER })
-  //   role: UserRoleEnum;
+  @Prop()
+  country: string;
+
+  @Prop()
+  state: string;
+
+  @Prop()
+  city: string;
+
+  @Prop()
+  area: string;
 
   @Prop()
   birthday: Date;
@@ -62,6 +69,15 @@ export class User {
   bio: string;
 
   @Prop({ default: '' })
+  currency: string;
+
+  @Prop({ default: '' })
+  businessType: string;
+
+  @Prop({ default: '' })
+  businessName: string;
+
+  @Prop({ default: '' })
   profilePhoto: string;
 
   @Prop({ type: [mongoose.Schema.Types.ObjectId], ref: Interest.name })
@@ -75,9 +91,6 @@ export class User {
 
   @Prop({ default: false })
   isGoogleAuth: boolean;
-
-  @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Peer' }] })
-  p2p: any[];
 
   @Prop()
   refreshToken: string;
@@ -94,11 +107,11 @@ export class User {
   @Prop({ default: null })
   subscriptionEndDate: Date;
 
-  @Prop({ unique: true, sparse: true })
-  referralCode?: string;
-
   @Prop({ type: String })
   twoFactorAuthenticationSecret?: string;
+
+  @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Store' }] })
+  stores: Store[];
 }
 export type UserDocument = User & Document;
 export const UserSchema = SchemaFactory.createForClass(User);

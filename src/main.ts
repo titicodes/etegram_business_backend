@@ -33,7 +33,7 @@ async function bootstrap() {
    * Set global prefix for routes
    */
   app.setGlobalPrefix('/api');
-  
+
   /**
    *  Set global pipes
    */
@@ -45,39 +45,38 @@ async function bootstrap() {
     }),
   );
 
-   // Swagger setup
-   const config = new DocumentBuilder()
-   .setTitle('Etegram Businuess')
-   .setDescription('Etegram Business')
-   .setVersion('1.0')
-   .addTag('Etegram Business API')
-   .addBearerAuth(
-     {
-       type: 'http',
-       scheme: 'bearer',
-       bearerFormat: 'JWT',
-       name: 'JWT',
-       description: 'Enter JWT token',
-       in: 'header',
-     },
-     'JWT-auth',
-   )
-   .build();
+  // Swagger setup
+  const config = new DocumentBuilder()
+    .setTitle('Etegram Businuess')
+    .setDescription('Etegram Business')
+    .setVersion('1.0')
+    .addTag('Etegram Business API')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'JWT',
+        description: 'Enter JWT token',
+        in: 'header',
+      },
+      'JWT-auth',
+    )
+    .build();
 
- const document = SwaggerModule.createDocument(app, config);
- SwaggerModule.setup('swagger', app, document, {
-   swaggerOptions: {
-     tagsSorter: 'alpha',
-     operationsSorter: 'alpha',
-     persistAuthorization: true,
-     customSiteTitle: `ETEGRAM BUS API Docs`,
-   },
- });
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('swagger', app, document, {
+    swaggerOptions: {
+      tagsSorter: 'alpha',
+      operationsSorter: 'alpha',
+      persistAuthorization: true,
+      customSiteTitle: `ETEGRAM BUS API Docs`,
+    },
+  });
 
 
-  await app.listen(ENVIRONMENT.APP.PORT);
-  console.log(
-    `Application is running on: http://localhost:${ENVIRONMENT.APP.PORT}`,
-  );
+  await app.listen(ENVIRONMENT.APP.PORT, '0.0.0.0');
+  console.log(`Server running on: http://0.0.0.0:${ENVIRONMENT.APP.PORT}`);
+
 }
 bootstrap();

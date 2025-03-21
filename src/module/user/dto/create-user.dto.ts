@@ -5,12 +5,6 @@ import {
   Length,
   MinLength,
   MaxLength,
-  IsEnum,
-  IsArray,
-  IsBoolean,
-  IsBooleanString,
-  IsDateString,
-  IsMongoId,
   IsNotEmpty,
   IsCurrency,
 } from 'class-validator';
@@ -47,24 +41,18 @@ export class CreateUserDto {
   @MaxLength(20)
   lastName: string;
 
-  @ApiProperty({ description: 'The account number of the customer', required: false })
+  @ApiProperty({ description: 'The last name of the user' })
   @IsString()
-  @IsOptional()
-  accountNumber?: string;
+  businessName : string;
 
-  @ApiProperty({ description: 'The referral code of the customer', required: false })
-  @IsString()
-  @IsOptional()
-  referCode?: string;
-
-  @ApiProperty({
-    enum: UserRoleEnum,
-    description: 'The role of the user in the system',
-    required: false,
-  })
-  @IsEnum(UserRoleEnum, { message: 'Role must be either ADMIN or USER' })
-  @IsOptional()
-  role?: UserRoleEnum;
+  // @ApiProperty({
+  //   enum: UserRoleEnum,
+  //   description: 'The role of the user in the system',
+  //   required: false,
+  // })
+  // @IsEnum(UserRoleEnum, { message: 'Role must be either ADMIN or USER' })
+  // @IsOptional()
+  // role?: UserRoleEnum;
 
   metadata?: { userId: string };
 
@@ -78,16 +66,20 @@ export class CreateUserDto {
   @IsNotEmpty()
   state: string;
 
-  @ApiProperty({ description: 'The local government area of the user' })
-  @IsString()
-  @IsNotEmpty()
-  lga: string;
-
   @ApiProperty({ description: 'The currency of the user' })
   @IsString()
   @IsNotEmpty()
-  @IsCurrency() // Validate currency format (e.g., "NGN", "USD")
+  @IsString()
   currency: string;
+  
+  @ApiProperty({ description: 'The last area of the user' })
+  @IsString()
+  area: string;
+
+  @ApiProperty({ description: 'The last city of the user' })
+  @IsString()
+  @IsNotEmpty()
+  city: string;
 
   @ApiProperty({ description: 'The business type of the user', required: false }) // Make it optional if needed
   @IsString()

@@ -1,47 +1,40 @@
-import { ExecutionContext, Injectable } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
-import { AuthGuard } from '@nestjs/passport';
-import { IS_PUBLIC_KEY } from 'src/common/constants/decorators/public.decorator';
-
+import { Injectable, CanActivate, ExecutionContext } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
 
 @Injectable()
-export class JwtAuthGuard extends AuthGuard('jwt') {
-  constructor(private reflector: Reflector) {
-    super();
+export class JwtAuthGuard implements CanActivate {
+  constructor(private jwtService: JwtService) { }
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
+    const token = this.extractTokenFromHeader(request);
+
+    if (!token) {
+      console.warn('No token found in request');
+      return false;
+    }
+
+    try {
+      const payload = await this.jwtService.verifyAsync(token, {
+        secret: process.env.JWT_SECRET,
+      });
+
+      console.log('JWT Payload:', payload);
+
+      request['user'] = payload; // Attach payload to request
+
+      return true;
+    } catch (error) {
+      console.error('JWT Verification Error:', error);
+      return false;
+    }
   }
 
-  canActivate(context: ExecutionContext) {
-    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
-    if (isPublic) {
-      return true;
-    }
-    return super.canActivate(context);
+  private extractTokenFromHeader(request: any): string | undefined {
+    const authHeader = request.headers.authorization;
+    if (!authHeader) return undefined;
+
+    const [type, token] = authHeader.split(' ');
+    return type === 'Bearer' ? token : undefined;
   }
 }
-
-// import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
-// import { JwtService } from '@nestjs/jwt';
-// import { UserService } from 'src/module/user/user.service';
-
-// @Injectable()
-// export class JwtAuthGuard implements CanActivate {
-//     constructor(private readonly jwtService: JwtService, private readonly userService: UserService) {}
-
-//     async canActivate(context: ExecutionContext): Promise<boolean> {
-//         const request = context.switchToHttp().getRequest();
-//         const token = request.headers.authorization?.split(' ')
-//         if (!token) return false;
-
-//         try {
-//             const decoded = this.jwtService.verify(token);
-//             const user = await this.userService.findById(decoded.id);
-//             request.user = user; // Attach user to request
-//             return !!user; // Return true if user exists
-//         } catch (error) {
-//             return false; // Token is invalid
-//         }
-//     }
-// }

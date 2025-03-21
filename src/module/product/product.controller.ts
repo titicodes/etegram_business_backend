@@ -8,6 +8,7 @@ import {
   Body,
   Query,
   NotFoundException,
+  Patch,
 } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -40,9 +41,8 @@ export class ProductController {
    */
   @Get(':id')
   async getProduct(@Param('id') id: string): Promise<Product> {
-    const product = await this.productService.findOne(id);
-    if (!product) throw new NotFoundException('Product not found');
-    return product;
+    console.log('Received ID:', id);  // ✅ Check if the ID is correct
+    return this.productService.findOne(id);
   }
 
   /**
@@ -73,9 +73,13 @@ export class ProductController {
    * 🚀 Supply an existing product (Increase stock & optionally update details)
    * If the product doesn't exist, the supplier must scan and add a new one.
    */
-  @Post('supply')
-  async supplyProduct(@Body() createProductDto: CreateProductDto): Promise<Product> {
-    return this.productService.supplyProduct(createProductDto);
+  // product.controller.ts
+  @Patch(':id/supply') // Change to PATCH and use :id
+  async supplyProduct(
+    @Param('id') id: string,
+    @Body('stock') additionalStock: number,
+  ): Promise<Product> {
+    return this.productService.supplyProduct(id, additionalStock);
   }
 
   /**

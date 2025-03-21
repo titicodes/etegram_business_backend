@@ -9,12 +9,20 @@ export class BaseHelper {
     return randomBytes(length).toString('hex');
   }
 
-  static async hashData(data: string) {
-    return await bcrypt.hash(data, 12);
+  static async hashData(data: string): Promise<string> {
+    return bcrypt.hash(data, 12);
   }
 
-  static async compareHashedData(data: string, hashed: string) {
-    return await bcrypt.compare(data, hashed);
+
+  static async compareHashedData(data: string, hashed: string): Promise<boolean> {
+    try {
+      const result = await bcrypt.compare(data, hashed);
+      console.log("bcrypt compare result:", result);
+      return result;
+    } catch (error) {
+      console.error("bcrypt compare error: ", error);
+      return false;
+    }
   }
 
   static generateOTP(): number {

@@ -1,70 +1,47 @@
-// import { Module } from '@nestjs/common';
-// import { MailService } from './mail.service';
-// import { MailController } from './mail.controller';
-// import { MailerModule } from '@nestjs-modules/mailer';
-// import { ENVIRONMENT } from 'src/common/configs/environment';
-// import { join } from 'path';
-// @Module({
-//   imports: [
-//     MailerModule.forRoot({
-//       transport: {
-//         service: 'gmail',
-//         auth: {
-//           user: ENVIRONMENT.MAILER.EMAIL,
-//           pass: ENVIRONMENT.MAILER.PASSWORD,
-//         },
-//       },
-//       defaults: {
-//         from: '"No Reply" <noreply>@macwin.com>',
-//       },
-//       template: {
-//         dir: join(__dirname, 'templates'),
-//         options: {
-//           strict: true,
-//         },
-//       },
-//     }),
-//   ],
-//   controllers: [MailController],
-//   providers: [MailService],
-//   exports: [MailService],
-// })
-// export class MailModule {}
 
 import { Module } from '@nestjs/common';
 import { MailerModule } from '@nestjs-modules/mailer';
-import { join } from 'path';
 import { MailService } from './mail.service';
 import { MailController } from './mail.controller';
 import { ENVIRONMENT } from 'src/common/config/environment';
 import { debug } from 'console';
 import { logger } from 'env-var';
+import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { join } from 'path';
+
 
 @Module({
   imports: [
-    MailerModule.forRoot({
-      transport: {
-        host: ENVIRONMENT.MAILER.HOST,
-        port: +ENVIRONMENT.MAILER.PORT,
-        auth: {
-          user: ENVIRONMENT.MAILER.EMAIL,
-          pass: ENVIRONMENT.MAILER.PASSWORD,
+    ConfigModule.forRoot(),
+    MailerModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: async (config: ConfigService) => ({
+        transport: {
+          host: config.get<string>('MAIL_HOST'),
+          port: config.get<number>('MAIL_PORT'),
+          secure: true,
+          auth: {
+            user: config.get<string>('EMAIL_USER'),
+            pass: config.get<string>('EMAIL_PASS'),
+          },
+          debug: true, // Enable debug logs
+          logger: true, // Log SMTP interactions
         },
-        debug:true,
-        logger:true
-      },
-      defaults: {
-        from: '"No Reply" <noreply@macwin.com>',
-      },
-      template: {
-        dir: join(__dirname, 'templates'),
-        options: {
-          strict: true,
+        defaults: {
+          from: `"No Reply" <${config.get<string>('MAIL_FROM')}>`,
         },
-      },
+        template: {
+          dir: join(__dirname, 'templates'),
+          adapter: new HandlebarsAdapter(),
+          options: {
+            strict: true,
+          },
+        },
+      }),
+      inject: [ConfigService],
     }),
   ],
-  controllers: [MailController],
   providers: [MailService],
   exports: [MailService],
 })

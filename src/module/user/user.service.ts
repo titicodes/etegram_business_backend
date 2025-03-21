@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { BaseHelper } from 'src/utils/helper.util';
@@ -12,53 +13,72 @@ import { UserRoleEnum } from 'src/common/constants/enums/user.enum';
 import { CoreService } from 'src/common/constants/core/service.core';
 import { UserRepository } from './user.repository';
 import { pinDto, changePinDto } from './dto/change-pin.dto';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class UserService extends CoreService<UserRepository> {
   constructor(
     private readonly repository: UserRepository,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private readonly jwtService: JwtService,
   ) {
     super(repository);
   }
 
   async createUser(dto: CreateUserDto) {
     try {
-      const hashedPassword = await BaseHelper.hashData(dto.password);
-
-      // Check for duplicate email or phone
-      const existingUser = await this.userModel.findOne({
-        $or: [{ email: dto.email }, { phone: dto.phone }],
-      });
+      // Check if email already exists
+      const existingUser = await this.userModel.findOne({ email: dto.email });
 
       if (existingUser) {
-        throw new BadRequestException('Email or phone number already exists');
+        throw new BadRequestException('Email already exists');
       }
 
-      // Create user and ensure _id is assigned properly
+      // Hash password
+      const hashedPassword = await BaseHelper.hashData(dto.password);
+
+      // Create user object
       const newCustomer = new this.userModel({
         ...dto,
-        _id: new mongoose.Types.ObjectId(), // Explicitly generate _id
+        _id: new mongoose.Types.ObjectId(),
         password: hashedPassword,
-        role: dto.role || UserRoleEnum.USER,
       });
 
-      await newCustomer.save();
+      await newCustomer.save(); // Save user
+
+      // Generate JWT tokens
+      const tokenPayload = { _id: newCustomer._id };
+      const accessToken = this.jwtService.sign(tokenPayload);
+      const refreshToken = this.jwtService.sign(
+        { _id: newCustomer._id },
+        {
+          secret: process.env.JWT_REFRESH_SECRET,
+          expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME,
+        },
+      );
+
+      await this.saveRefreshToken(newCustomer._id.toString(), refreshToken);
 
       return {
         success: true,
         customer: newCustomer,
         email: dto.email,
+        phone: dto.phone,
+        accessToken,
+        refreshToken,
       };
     } catch (err) {
+      // Handle MongoDB duplicate key error
       if (err.code === 11000) {
         throw new BadRequestException(
-          `Duplicate entry detected: ${JSON.stringify(err.keyValue)}`,
+          `Duplicate entry detected: ${JSON.stringify(err.keyValue)}`
         );
       }
       throw new BadRequestException(err.message || 'Failed to create customer');
     }
   }
+
+
 
   async findByIdAndUpdate(id: string, data: any): Promise<UserDocument> {
     return this.userModel.findByIdAndUpdate(id, data, { new: true }).exec();
@@ -154,11 +174,31 @@ export class UserService extends CoreService<UserRepository> {
     return user;
   }
 
-  async getUser(userId: string): Promise<UserDocument> {
-    const user = await this.userModel
-      .findOne({ _id: userId })
-      .populate('interests')
-      .lean();
-    return user as UserDocument;
+  // async getUser(userId: string): Promise<UserDocument> {
+  //   const user = await this.userModel
+  //     .findOne({ _id: userId })
+  //     .populate('interests')
+  //     .lean();
+  //   return user as UserDocument;
+  // }
+
+  async getUser(request: any): Promise<{ user: UserDocument; accessToken: string }> {
+    console.log("[getUser] Headers:", request.headers); // Log all headers
+    console.log("[getUser] Received Token:", request.headers.authorization); // Log token
+
+    if (!request.user || !request.user._id) {
+      console.error("[getUser] Error: Missing user authentication data.");
+      throw new UnauthorizedException("Invalid request: Missing user authentication");
+    }
+
+    const user = await this.userModel.findOne({ _id: request.user._id }).populate("interests").lean();
+
+    if (!user) {
+      console.error(`[getUser] Error: User with ID ${request.user._id} not found.`);
+      throw new NotFoundException("User not found");
+    }
+
+    return { user, accessToken: request.headers.authorization?.split(" ")[1] };
   }
+
 }

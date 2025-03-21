@@ -38,24 +38,25 @@ export class AuthService extends CoreService<UserRepository> {
 
   async register(payload: CreateUserDto) {
     try {
-      // Ensure user doesn't already exist
-      const existingUser = await this.userModel.findOne({
-        $or: [{ email: payload.email }, { phone: payload.phone }],
+      console.log("Registering user:", payload);
+      const user = await this.userService.createUser(payload);
+      console.log("User created:", user);
+      await this.otpService.sendOTP({
+        email: user.email,
+        type: OtpTypeEnum.VERIFY_EMAIL,
+        phone: user.phone,
       });
-
-      if (existingUser) {
-        throw new BadRequestException('Email or phone number already exists');
-      }
-
-      // Register user
-      return await this.userService.createUser(payload);
+      return user;
     } catch (error) {
-      if (error.code === 11000) {
-        throw new BadRequestException('Duplicate entry detected');
+      console.error("Registration error:", error);
+      if (error instanceof Error) {
+        console.error("Error Message:", error.message);
+        console.error("Error Stack:", error.stack);
       }
       throw new BadRequestException(error.message || 'Registration failed');
     }
   }
+
 
   async decodeToken(token: string) {
     const user = (await this.jwtService.verify(token)) as payload;
@@ -65,84 +66,146 @@ export class AuthService extends CoreService<UserRepository> {
     return user.id;
   }
 
-  async login(payload: LoginDto) {
-    const { email, password } = payload;
+  async login(dto: LoginDto) {
+    try {
+      const user: UserDocument = await this.userService.getUserByEmailIncludePassword(dto.email);
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
 
-    const user: UserDocument =
-      await this.userService.getUserByEmailIncludePassword(email);
+      console.log('[login] Attempting login for:', dto.email);
+      console.log('Entered Password:', dto.password);
+      console.log('Stored Hashed Password:', user.password);
 
-    if (!user) {
-      throw new BadRequestException('Invalid Credential');
+      const password = dto.password.trim(); // Trim password
+      console.log('Trimmed Password:', password);
+
+      const passwordMatch = await BaseHelper.compareHashedData(password, user.password);
+      console.log('Password Match:', passwordMatch);
+
+      if (!passwordMatch) {
+        console.log("Password comparison failed.");
+        throw new BadRequestException('Incorrect password');
+      }
+
+      // Generate JWT tokens
+      const tokenPayload = { _id: user._id, isAdmin: user.isAdmin };
+
+      const accessToken = this.jwtService.sign(tokenPayload, {
+        secret: process.env.JWT_SECRET,
+        expiresIn: process.env.JWT_EXPIRATION_TIME,
+      });
+
+      const refreshToken = this.jwtService.sign(
+        { _id: user._id },
+        {
+          secret: process.env.JWT_REFRESH_SECRET,
+          expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME,
+        }
+      );
+
+      console.log(`[login] Tokens generated for User ${user._id}:`);
+      console.log(`  - Access Token: ${accessToken.substring(0, 20)}...`);
+      console.log(`  - Refresh Token: ${refreshToken.substring(0, 20)}...`);
+
+      const decodedToken = this.jwtService.decode(accessToken) as { exp: number };
+      const expiresAt = decodedToken.exp;
+
+      console.log(`[login] Login successful for User ${user._id}. Token expires at ${new Date(expiresAt * 1000)}`);
+
+      await this.userService.saveRefreshToken(user._id.toString(), refreshToken);
+
+      return {
+        success: true,
+        ...user.toObject(),
+        accessToken,
+        refreshToken,
+      };
+    } catch (err) {
+      throw new BadRequestException(err.message || 'Login failed');
     }
-
-    console.log(`User emailVerified status: ${user.emailVerified}`);
-    console.log(`Stored hashed password: ${user.password}`);
-
-    const passwordMatch = await BaseHelper.compareHashedData(
-      password,
-      user.password,
-    );
-
-    if (!passwordMatch) {
-      throw new BadRequestException('Incorrect Password');
-    }
-
-    if (!user.emailVerified) {
-      throw new BadRequestException('Kindly verify your email to login');
-    }
-
-    // Create the token payload with isAdmin flag
-    const tokenPayload = { _id: user._id, isAdmin: user.isAdmin };
-
-    const accessToken = this.jwtService.sign(tokenPayload);
-    const refreshToken = this.jwtService.sign(
-      { _id: user._id },
-      {
-        secret: process.env.JWT_REFRESH_SECRET,
-        expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME,
-      },
-    );
-
-    await this.userService.saveRefreshToken(user._id.toString(), refreshToken);
-
-    delete user['_doc'].password;
-    return {
-      ...user['_doc'],
-      accessToken,
-      refreshToken,
-    };
   }
 
-  async refreshToken(refreshToken: string): Promise<{ accessToken: string }> {
+
+  async validateToken(token: string): Promise<UserDocument> {
     try {
+      console.log(`[validateToken] Validating token: ${token.substring(0, 20)}...`);
+
+      const payload = this.jwtService.verify(token, {
+        secret: process.env.JWT_ACCESS_SECRET,
+      });
+
+      console.log(`[validateToken] Token decoded successfully:`, payload);
+
+      const user = await this.userService.findById(payload._id);
+
+      if (!user) {
+        console.error('[validateToken] User not found for token:', token);
+        throw new UnauthorizedException('Invalid token');
+      }
+
+      return user;
+    } catch (e) {
+      console.error('[validateToken] Token validation failed:', e.message);
+      throw new UnauthorizedException('Invalid or expired token');
+    }
+  }
+
+  async refreshToken(refreshToken: string): Promise<{
+    accessToken: string;
+    expiresAt: number;
+  }> {
+    try {
+      console.log(`[refreshToken] Refreshing token: ${refreshToken.substring(0, 20)}...`);
+
       const payload = this.jwtService.verify(refreshToken, {
         secret: process.env.JWT_REFRESH_SECRET,
       });
 
-      const user: UserDocument = await this.userService.getUserByEmail(
-        payload.email,
-      );
+      console.log('[refreshToken] Refresh token verified:', payload);
+
+      const user = await this.userService.findById(payload._id);
 
       if (!user || user.refreshToken !== refreshToken) {
+        console.warn(`[refreshToken] Invalid refresh token for user ${payload._id}`);
         throw new UnauthorizedException('Invalid refresh token');
       }
 
       const newAccessToken = this.jwtService.sign(
-        { _id: user._id },
+        { _id: user._id, isAdmin: user.isAdmin },
         {
           secret: process.env.JWT_ACCESS_SECRET,
           expiresIn: process.env.JWT_ACCESS_EXPIRATION_TIME,
-        },
+        }
       );
 
-      return { accessToken: newAccessToken };
+      const decodedToken = this.jwtService.decode(newAccessToken) as { exp: number };
+      const expiresAt = decodedToken.exp;
+
+      console.log(`[refreshToken] New access token generated for User ${user._id}. Expires at: ${new Date(expiresAt * 1000)}`);
+
+      return { accessToken: newAccessToken, expiresAt };
     } catch (e) {
+      console.error('[refreshToken] Token refresh failed:', e.message);
       throw new UnauthorizedException('Failed to refresh token');
     }
   }
 
-  async logout(userId: string) {
-    await this.userService.removeRefreshToken(userId);
+
+  async logout(token: string) {
+    if (!token || typeof token !== 'string') {
+      throw new UnauthorizedException('Invalid token format');
+    }
+
+    console.log(`[logout] Token received: ${token}`);
+
+    const user = await this.validateToken(token); // Check if token is valid
+    if (!user) {
+      throw new UnauthorizedException('Invalid or expired token');
+    }
+
+    await this.userService.removeRefreshToken(user._id.toString());
+    return { message: 'Logout successful' };
   }
 
   async sendPasswordResetEmail(payload: ForgotPasswordDto) {
@@ -197,5 +260,22 @@ export class AuthService extends CoreService<UserRepository> {
       emailVerified: true,
       //wallet: user.wallet + 100,
     });
+  }
+
+  async getUserByAccessToken(accessToken: string) {
+    try {
+      const user = await this.validateToken(accessToken);
+      return {
+        success: true,
+        user: {
+          _id: user._id,
+          email: user.email,
+          phone: user.phone,
+          isAdmin: user.isAdmin,
+        },
+      };
+    } catch (error) {
+      throw new UnauthorizedException('Invalid or expired token');
+    }
   }
 }

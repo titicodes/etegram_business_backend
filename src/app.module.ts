@@ -18,6 +18,9 @@ import { ProductCategoryModule } from './module/product-category/product-categor
 import { NotificationModule } from './module/notification/notification.module';
 import { FirebaseModule } from './firebase/firebase.module';
 import { EmailModule } from './module/email/email.module';
+import { StoreModule } from './module/store/store.module';
+import { SupplierModule } from './module/supply/supply.module';
+
 
 @Module({
   imports: [
@@ -48,7 +51,9 @@ import { EmailModule } from './module/email/email.module';
     UserModule,
     NotificationModule,
     FirebaseModule,
-    EmailModule
+    EmailModule,
+    StoreModule,
+    SupplierModule
   ],
   controllers: [AppController],
   providers: [AppService],
