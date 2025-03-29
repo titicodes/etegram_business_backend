@@ -1,4 +1,4 @@
-import { Controller, Get, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { CoreController } from 'src/common/constants/core/controller.core';
 import { UserService } from './user.service';
 import { RESPONSE_CONSTANT } from 'src/common/constants/response.constants';
@@ -24,5 +24,10 @@ export class UserController extends CoreController {
             },
             message: RESPONSE_CONSTANT.USER.GET_CURRENT_USER_SUCCESS,
         };
+    }
+
+    @Post(':id/fcm-token')
+    async updateUserFcmToken(@Param('id') userId: string, @Body('fcmToken') fcmToken: string) {
+        return this.userService.updateUserFcmToken(userId, fcmToken);
     }
 }

@@ -1,3 +1,4 @@
+// products/product.controller.ts
 import {
   Controller,
   Get,
@@ -24,7 +25,7 @@ export class ProductController {
    * 🔍 Search products using name, category, or keyword
    */
   @Get('search')
-  async searchProducts(@Query() filterProductDTO: FilterProductDTO): Promise<Product[]> {
+  async searchProducts(@Query() filterProductDTO: FilterProductDTO): Promise<any> { // Updated return type
     return this.productService.getFilteredProducts(filterProductDTO);
   }
 
@@ -41,7 +42,7 @@ export class ProductController {
    */
   @Get(':id')
   async getProduct(@Param('id') id: string): Promise<Product> {
-    console.log('Received ID:', id);  // ✅ Check if the ID is correct
+    console.log('Received ID:', id); // ✅ Check if the ID is correct
     return this.productService.findOne(id);
   }
 
@@ -54,7 +55,7 @@ export class ProductController {
   }
 
   /**
-   * ✏️ Update an existing product (Optional when supplying more stock)
+   * ✏️ Update an existing product
    */
   @Put(':id')
   async updateProduct(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto): Promise<Product> {
@@ -70,11 +71,9 @@ export class ProductController {
   }
 
   /**
-   * 🚀 Supply an existing product (Increase stock & optionally update details)
-   * If the product doesn't exist, the supplier must scan and add a new one.
+   * 🚀 Supply an existing product (Increase stock)
    */
-  // product.controller.ts
-  @Patch(':id/supply') // Change to PATCH and use :id
+  @Patch(':id/supply')
   async supplyProduct(
     @Param('id') id: string,
     @Body('stock') additionalStock: number,

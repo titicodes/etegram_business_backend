@@ -63,8 +63,9 @@ export class AuthService extends CoreService<UserRepository> {
     if (!user) {
       throw new NotFoundException('User does not exist');
     }
-    return user.id;
+    return user._id; // ✅ Correct field
   }
+
 
   async login(dto: LoginDto) {
     try {
@@ -89,7 +90,8 @@ export class AuthService extends CoreService<UserRepository> {
       }
 
       // Generate JWT tokens
-      const tokenPayload = { _id: user._id, isAdmin: user.isAdmin };
+      const tokenPayload = { _id: user._id, email: user.email, isAdmin: user.isAdmin };
+
 
       const accessToken = this.jwtService.sign(tokenPayload, {
         secret: process.env.JWT_SECRET,
@@ -132,7 +134,7 @@ export class AuthService extends CoreService<UserRepository> {
       console.log(`[validateToken] Validating token: ${token.substring(0, 20)}...`);
 
       const payload = this.jwtService.verify(token, {
-        secret: process.env.JWT_ACCESS_SECRET,
+        secret: process.env.JWT_SECRET,
       });
 
       console.log(`[validateToken] Token decoded successfully:`, payload);
@@ -174,7 +176,7 @@ export class AuthService extends CoreService<UserRepository> {
       const newAccessToken = this.jwtService.sign(
         { _id: user._id, isAdmin: user.isAdmin },
         {
-          secret: process.env.JWT_ACCESS_SECRET,
+          secret: process.env.JWT_SECRET,
           expiresIn: process.env.JWT_ACCESS_EXPIRATION_TIME,
         }
       );

@@ -1,8 +1,10 @@
+// In your product-category.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
-
-import { ProductCategory } from './schema/product-category.schema';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { ProductCategory, ProductCategoryDocument } from './schema/product-category.schema';
 import { ProductCategoriesRepository } from './category.repository';
-import { CreateProductDto } from '../product/dto/create-product.dto';
+
 
 @Injectable()
 export class ProductCategoriesService {
@@ -18,6 +20,10 @@ export class ProductCategoriesService {
     const category = await this.productCategoriesRepo.findOne(id);
     if (!category) throw new NotFoundException('Category not found');
     return category;
+  }
+
+  async findOneByName(name: string): Promise<ProductCategory | null> {
+    return this.productCategoriesRepo.findOneByName(name);
   }
 
   async create(createCategoryDto: any): Promise<ProductCategory> {
@@ -40,5 +46,13 @@ export class ProductCategoriesService {
     const deletedCategory = await this.productCategoriesRepo.remove(id);
     if (!deletedCategory) throw new NotFoundException('Category not found');
     return deletedCategory;
+  }
+
+  async findOrCreate(categoryName: string): Promise<ProductCategory> {
+    let category = await this.findOneByName(categoryName);
+    if (!category) {
+      category = await this.create({ name: categoryName });
+    }
+    return category;
   }
 }

@@ -27,57 +27,55 @@ export class UserService extends CoreService<UserRepository> {
 
   async createUser(dto: CreateUserDto) {
     try {
-      // Check if email already exists
-      const existingUser = await this.userModel.findOne({ email: dto.email });
+        // Check if email already exists
+        const existingUser = await this.userModel.findOne({ email: dto.email });
 
-      if (existingUser) {
-        throw new BadRequestException('Email already exists');
-      }
+        if (existingUser) {
+            throw new BadRequestException('Email already exists');
+        }
 
-      // Hash password
-      const hashedPassword = await BaseHelper.hashData(dto.password);
+        // Hash password
+        const hashedPassword = await BaseHelper.hashData(dto.password);
 
-      // Create user object
-      const newCustomer = new this.userModel({
-        ...dto,
-        _id: new mongoose.Types.ObjectId(),
-        password: hashedPassword,
-      });
+        // Create user object (Mongoose will generate _id automatically)
+        const newCustomer = new this.userModel({
+            ...dto,
+            password: hashedPassword,
+        });
 
-      await newCustomer.save(); // Save user
+        await newCustomer.save(); // Save user
 
-      // Generate JWT tokens
-      const tokenPayload = { _id: newCustomer._id };
-      const accessToken = this.jwtService.sign(tokenPayload);
-      const refreshToken = this.jwtService.sign(
-        { _id: newCustomer._id },
-        {
-          secret: process.env.JWT_REFRESH_SECRET,
-          expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME,
-        },
-      );
-
-      await this.saveRefreshToken(newCustomer._id.toString(), refreshToken);
-
-      return {
-        success: true,
-        customer: newCustomer,
-        email: dto.email,
-        phone: dto.phone,
-        accessToken,
-        refreshToken,
-      };
-    } catch (err) {
-      // Handle MongoDB duplicate key error
-      if (err.code === 11000) {
-        throw new BadRequestException(
-          `Duplicate entry detected: ${JSON.stringify(err.keyValue)}`
+        // Generate JWT tokens
+        const tokenPayload = { _id: newCustomer._id };
+        const accessToken = this.jwtService.sign(tokenPayload);
+        const refreshToken = this.jwtService.sign(
+            { _id: newCustomer._id },
+            {
+                secret: process.env.JWT_REFRESH_SECRET,
+                expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME,
+            },
         );
-      }
-      throw new BadRequestException(err.message || 'Failed to create customer');
-    }
-  }
 
+        await this.saveRefreshToken(newCustomer._id.toString(), refreshToken);
+
+        return {
+            success: true,
+            customer: newCustomer,
+            email: dto.email,
+            phone: dto.phone,
+            accessToken,
+            refreshToken,
+        };
+    } catch (err) {
+        // Handle MongoDB duplicate key error
+        if (err.code === 11000) {
+            throw new BadRequestException(
+                `Duplicate entry detected: ${JSON.stringify(err.keyValue)}`
+            );
+        }
+        throw new BadRequestException(err.message || 'Failed to create customer');
+    }
+}
 
 
   async findByIdAndUpdate(id: string, data: any): Promise<UserDocument> {
@@ -200,5 +198,19 @@ export class UserService extends CoreService<UserRepository> {
 
     return { user, accessToken: request.headers.authorization?.split(" ")[1] };
   }
+
+  async updateUserFcmToken(userId: string, fcmToken: string): Promise<User> {
+    const updatedUser = await this.userModel.findByIdAndUpdate(
+        userId,
+        { fcmToken: fcmToken },
+        { new: true },
+    ).exec();
+
+    if (!updatedUser) {
+        throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    return updatedUser;
+}
 
 }

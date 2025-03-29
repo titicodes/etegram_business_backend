@@ -77,6 +77,7 @@ async function bootstrap() {
 
   await app.listen(ENVIRONMENT.APP.PORT, '0.0.0.0');
   console.log(`Server running on: http://0.0.0.0:${ENVIRONMENT.APP.PORT}`);
+  console.log('JWT Secret (Application Startup):', process.env.JWT_SECRET);
 
 }
 bootstrap();

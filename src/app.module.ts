@@ -20,6 +20,7 @@ import { FirebaseModule } from './firebase/firebase.module';
 import { EmailModule } from './module/email/email.module';
 import { StoreModule } from './module/store/store.module';
 import { SupplierModule } from './module/supply/supply.module';
+import { PaymentMethodModule } from './module/payment-method/payment-method.module';
 
 
 @Module({
@@ -53,7 +54,8 @@ import { SupplierModule } from './module/supply/supply.module';
     FirebaseModule,
     EmailModule,
     StoreModule,
-    SupplierModule
+    SupplierModule,
+    PaymentMethodModule
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -8,6 +8,7 @@ import { NotificationModule } from '../notification/notification.module';
 import { InvoiceService } from '../invoice/invoice.service';
 import { EmailModule } from '../email/email.module';
 import { FirebaseModule } from 'src/firebase/firebase.module';
+import { UserModule } from '../user/user.module';
 
 @Module({
   imports: [
@@ -17,7 +18,8 @@ import { FirebaseModule } from 'src/firebase/firebase.module';
     ]),
     NotificationModule,
     EmailModule,
-    FirebaseModule
+    FirebaseModule,
+    UserModule
   ],
   controllers: [CheckoutController],
   providers: [CheckoutService, InvoiceService],

@@ -6,19 +6,15 @@ import * as fs from 'fs';
 export class FirebaseService {
   constructor() {
     if (!admin.apps.length) {
-      // Load the service account JSON from the file path in .env
       const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT;
       if (!serviceAccountPath) {
         throw new Error('❌ Missing FIREBASE_SERVICE_ACCOUNT in .env file');
       }
 
-      const serviceAccount = JSON.parse(
-        fs.readFileSync(serviceAccountPath, 'utf8'),
-      );
+      const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
 
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
-        projectId: process.env.FIREBASE_PROJECT_ID,
       });
 
       console.log('✅ Firebase initialized successfully');
@@ -87,30 +83,40 @@ export class FirebaseService {
     }
   }
 
-  async sendNotification(userId: string, title: string, body: string) {
-    const messaging = this.getMessaging();
-
+  async sendNotification(token: string, title: string, body: string) {
+    const message: admin.messaging.Message = {
+      token,
+      notification: {
+        title,
+        body,
+      },
+      android: {
+        priority: "high" as "high", // Explicitly type this
+      },
+      apns: {
+        payload: {
+          aps: {
+            contentAvailable: true,
+            alert: {
+              title,
+              body,
+            },
+          },
+        },
+      },
+    };
+  
     try {
-      // Get the user's FCM token from Firestore (Assume tokens are stored under `users/{userId}/token`)
-      const userRef = this.getFirestore().collection('users').doc(userId);
-      const userDoc = await userRef.get();
-
-      if (!userDoc.exists || !userDoc.data()?.fcmToken) {
-        console.warn(`⚠️ No FCM token found for user ${userId}`);
-        return;
-      }
-
-      const deviceToken = userDoc.data().fcmToken;
-
-      await messaging.send({
-        token: deviceToken,
-        notification: { title, body },
-      });
-
-      console.log(`✅ Notification sent to ${userId}: ${title}`);
+      const response = await admin.messaging().send(message);
+      console.log('✅ Notification sent successfully:', response);
+      return { success: true, response };
     } catch (error) {
-      console.error(`❌ Firebase Error: Failed to send notification`, error);
+      console.error('❌ Error sending notification:', error);
+      return { success: false, error };
     }
   }
+  
+
+
 }
 

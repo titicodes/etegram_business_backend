@@ -1,0 +1,52 @@
+<html>
+  <head>
+    <title>Order Confirmation</title>
+    <style>
+      body { font-family: Arial, sans-serif; background-color: #f4f4f4; padding:
+      20px; } .container { max-width: 600px; margin: 0 auto; background-color:
+      white; padding: 20px; border-radius: 10px; box-shadow: 0px 0px 10px
+      rgba(0, 0, 0, 0.1); } h2 { color: #007bff; } p { font-size: 16px; color:
+      #333; } .order-details { margin-top: 20px; padding: 15px; border: 1px
+      solid #ddd; border-radius: 5px; background-color: #fafafa; }
+      .order-details strong { color: #007bff; } .button { display: inline-block;
+      padding: 12px 20px; margin-top: 15px; background-color: #007bff; color:
+      white; text-decoration: none; border-radius: 5px; } .footer { text-align:
+      center; font-size: 14px; color: #888; margin-top: 20px; }
+    </style>
+  </head>
+  <body>
+    <div class='container'>
+      <h2>Thank You for Your Order, {{customerName}}!</h2>
+      <p>Your order
+        <strong>#{{orderId}}</strong>
+        has been placed successfully.</p>
+
+      <div class='order-details'>
+        <p><strong>Total Price:</strong> ₦{{totalPrice}}</p>
+        <p><strong>Payment Method:</strong> {{paymentMethod}}</p>
+        <p><strong>Delivery Address:</strong> {{deliveryAddress}}</p>
+      </div>
+
+      <p>If you have any questions or need further assistance, please contact us
+        at support@yourcompany.com.</p>
+
+      <h1>Order Confirmation</h1>
+      <p>Dear {{name}},</p>
+      <p>Thank you for your purchase! Your order ID is
+        <strong>#{{orderId}}</strong>.</p>
+      <p>Total Amount: ₦{{totalPrice}}</p>
+      <ul>
+        {{#each items}}
+          <li>{{this.name}} - {{this.quantity}} x ₦{{this.price}}</li>
+        {{/each}}
+      </ul>
+
+      <p>You can download your invoice here:
+        <a href='{{invoiceUrl}}' target='_blank'>Download Invoice</a></p>
+      <p>Best Regards,<br />Your Company</p>
+
+      <p class='footer'>If you have any questions, contact us at
+        support@yourcompany.com.</p>
+    </div>
+  </body>
+</html>

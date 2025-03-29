@@ -1,59 +1,68 @@
-import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+// In your create-product.dto.ts
+import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { Types } from 'mongoose';
 
 export class CreateProductDto {
-  @IsString()
   @IsNotEmpty()
+  @IsString()
   code: string;
 
-  @IsNumber()
   @IsNotEmpty()
-  quantity: number;
-
-  @IsString()
-  @IsOptional()
-  image?: string;
-
-  @IsNumber()
-  @IsNotEmpty()
-  price: number;
-
-  @IsString()
-  @IsNotEmpty()
-  categoryId: string;
-
-  @IsNumber()
-  @IsNotEmpty()
-  unitId: number;
-
-  @IsNumber()
-  @IsOptional()
-  stock: number
-
-  @IsString()
-  @IsOptional()
-  category:string
   @IsString()
   name: string;
 
+  @IsOptional()
   @IsString()
-  size: string;
+  description?: string;
 
-  @IsInt()
-  totalQuantity: number;
+  @IsNotEmpty()
+  @IsNumber()
+  price: number;
 
-  @IsInt()
-  totalCost: number;
-
-  @IsInt()
-  unitPrice: number;
-
-  @IsInt()
-  minQuantity: number;
-
+  @IsNotEmpty()
   @IsString()
-  expiryDate: string;
+  category: string; // Now expecting category name
+
+  @IsNotEmpty()
+  @IsNumber()
+  quantity: number;
+
+  @IsOptional()
+  @IsString()
+  image?: string;
+
+  @IsOptional()
+  @IsString()
+  expiryDate?: string;
+
+  @IsOptional()
+  @IsNumber()
+  unitPrice?: number;
+
+  @IsNotEmpty()
+  unitId: Types.ObjectId;
+
+  @IsOptional()
+  @IsNumber()
+  totalCost?: number;
+
+  @IsOptional()
+  @IsString()
+  size?: string;
+
+  @IsOptional()
+  @IsNumber()
+  totalQuantity?: number;
+
+  @IsOptional()
+  @IsNumber()
+  minQuantity?: number;
 
   @IsOptional()
   @IsString()
   supplyTo?: string;
+
+  @IsOptional()
+  @IsString()
+  brands?: string; // Add brands to the DTO
 }

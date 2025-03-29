@@ -1,3 +1,4 @@
+// In your product.schema.ts
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
@@ -15,7 +16,7 @@ export class Product {
   price: number;
 
   @Prop()
-  category: string;
+  category: string; // Now storing the category name
 
   @Prop({ required: true, unique: true })
   code: string;
@@ -26,14 +27,11 @@ export class Product {
   @Prop()
   image?: string;
 
-  @Prop({ required: true })
-  categoryId: string;
+  @Prop({ type: Types.ObjectId, ref: 'ProductCategory' }) // Reference to ProductCategory
+  categoryId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'UnitOfMeasure' }) // Use ObjectId and reference
-  unitId: string;
-
-  // @Prop({ required: true, autoIncrement: true })
-  // productId: number;
+  @Prop({ type: Types.ObjectId, ref: 'UnitOfMeasure', required: true })
+  unitId: Types.ObjectId;
 
   @Prop({ required: false, default: 0 })
   stock: number;
@@ -58,5 +56,8 @@ export class Product {
 
   @Prop({ required: false })
   supplyTo?: string;
+
+  @Prop() // Add brand field
+  brands: string;
 }
 export const ProductSchema = SchemaFactory.createForClass(Product);

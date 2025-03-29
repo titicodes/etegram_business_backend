@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import mongoose, { Document } from 'mongoose';
+import mongoose, { Document, Types } from 'mongoose';
 import { Interest } from 'src/module/interest/schemas/interest.schema';
 import { Store } from 'src/module/store/schema/store.schema';
 
@@ -8,6 +8,8 @@ export class User {
   @Prop({ default: false, required: false })
   deviceToken: string;
 
+  _id: Types.ObjectId;
+  
   @Prop({ required: true, unique: true })
   email: string;
 
@@ -112,6 +114,9 @@ export class User {
 
   @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Store' }] })
   stores: Store[];
+
+  @Prop()
+  fcmToken?: string; 
 }
 export type UserDocument = User & Document;
 export const UserSchema = SchemaFactory.createForClass(User);

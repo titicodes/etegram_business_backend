@@ -7,6 +7,7 @@ import { Product, ProductDocument } from './schema/product.schema';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ProductCategoriesService } from '../product-category/product-category.service';
+import { ProductCategory } from '../product-category/schema/product-category.schema';
 
 @Injectable()
 export class ProductService {
@@ -19,6 +20,7 @@ export class ProductService {
   /**
    * 🔍 Search for products by name, category, or keyword
    */
+
   async getFilteredProducts(filterProductDTO: FilterProductDTO, page: number = 1, limit: number = 10): Promise<any> {
     const { category, search } = filterProductDTO;
     const query: any = {};
@@ -27,16 +29,14 @@ export class ProductService {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } },
-        { code: { $regex: search, $options: 'i' } } // ✅ Now supports searching by barcode
+        { code: { $regex: search, $options: 'i' } }
       ];
     }
 
-    if (category) {
-      try {
-        query.categoryId = new mongoose.Types.ObjectId(category);
-      } catch (error) {
-        throw new Error('Invalid category ID format');
-      }
+    if (category && mongoose.Types.ObjectId.isValid(category)) {
+      query.categoryId = new mongoose.Types.ObjectId(category);
+    } else if (category) {
+      throw new Error('Invalid category ID format');
     }
 
     const skip = (page - 1) * limit;
@@ -45,8 +45,7 @@ export class ProductService {
       .find(query)
       .skip(skip)
       .limit(limit)
-      .populate('categoryId')
-      .populate('unitId')
+      .populate('categoryId') // Removed unitId
       .exec();
 
     const total = await this.productModel.countDocuments(query);
@@ -60,7 +59,7 @@ export class ProductService {
         totalPages: Math.ceil(total / limit),
       },
     };
-}
+  }
 
   /**
    * 📦 Get all products with pagination
@@ -99,7 +98,7 @@ export class ProductService {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid product ID format');
     }
-  
+
     const product = await this.productModel.findById(id).populate('categoryId').populate('unitId').exec();
     if (!product) throw new NotFoundException('Product not found');
     return product;
@@ -113,23 +112,66 @@ export class ProductService {
   }
 
   /**
-   * ➕ Add a new product (Scanning required for new products)
-   */
+    * ➕ Add a new product (Scanning required for new products)
+    */
   async addProduct(createProductDTO: CreateProductDto): Promise<Product> {
     const existingProduct = await this.searchProductByCode(createProductDTO.code);
     if (existingProduct) throw new NotFoundException('Product code already exists');
 
-    const newProduct = new this.productModel(createProductDTO);
+    const { category, brands, ...rest } = createProductDTO;
+    let categoryEntity: ProductCategory | null = null;
+
+    if (category) {
+      categoryEntity = await this.categoryService.findOrCreate(category);
+      if (!categoryEntity) {
+        throw new NotFoundException('Failed to find or create category.');
+      }
+    } else {
+      // Handle the case where no category is provided (e.g., set a default)
+      const defaultCategoryName = 'Uncategorized';
+      categoryEntity = await this.categoryService.findOrCreate(defaultCategoryName);
+      if (!categoryEntity) {
+        throw new Error('Could not find or create default category.');
+      }
+    }
+
+    const newProduct = new this.productModel({
+      ...rest,
+      categoryId: categoryEntity._id,
+      category: category, // Save the category name
+      brands: brands, // Save the brand
+    });
     return newProduct.save();
   }
+
+
 
   /**
    * ✏️ Update an existing product
    */
+  /**
+    * ✏️ Update an existing product
+    */
   async updateProduct(id: string, updateProductDTO: UpdateProductDto): Promise<Product> {
-    const updatedProduct = await this.productModel.findByIdAndUpdate(id, updateProductDTO, { new: true });
-    if (!updatedProduct) throw new NotFoundException('Product not found');
-    return updatedProduct;
+    const { category, brands, ...rest } = updateProductDTO;
+    const existingProduct = await this.productModel.findById(id);
+    if (!existingProduct) throw new NotFoundException('Product not found');
+
+    if (category) {
+      const categoryEntity = await this.categoryService.findOrCreate(category);
+      if (!categoryEntity) {
+        throw new NotFoundException('Failed to find or create category.');
+      }
+      existingProduct.categoryId = categoryEntity._id as Types.ObjectId; // Explicit cast (if needed temporarily)
+      existingProduct.category = category;
+    }
+
+    if (brands) {
+      existingProduct.brands = brands;
+    }
+
+    Object.assign(existingProduct, rest); // Assign other update properties
+    return existingProduct.save();
   }
 
   /**
@@ -145,12 +187,12 @@ export class ProductService {
    * - If product exists, update stock & optional details
    * - If product does NOT exist, requires scanning & adding
    */
- 
+
   // supplier.service.ts
 
   async supplyProduct(id: string, additionalStock: number): Promise<Product> {
     const existingProduct = await this.productModel.findById(id);
-  
+
     if (existingProduct) {
       existingProduct.stock += additionalStock;
       return existingProduct.save();
@@ -164,41 +206,8 @@ export class ProductService {
    */
 
   async scanAndAddProduct(createProductDto: CreateProductDto): Promise<Product> {
-    const { code, name, categoryId, price, stock, quantity, expiryDate, unitPrice, unitId, totalCost, size, totalQuantity, minQuantity } = createProductDto;
-
-    // Ensure category exists
-    try {
-      const existingCategory = await this.categoryService.findOne(categoryId);
-      if (!existingCategory) throw new NotFoundException('Category not found');
-    } catch (error) {
-      throw new HttpException('Invalid categoryId', HttpStatus.BAD_REQUEST);
-    }
-
-    // Check if product already exists
-    const existingProduct = await this.productModel.findOne({ name });
-
-    if (existingProduct) {
-      throw new NotFoundException('Product already exists. Use supply instead.');
-    }
-
-    // Create and save the new product
-    const newProduct = new this.productModel({
-      code,
-      name,
-      categoryId,
-      price,
-      stock,
-      quantity,
-      expiryDate,
-      unitPrice,
-      unitId,
-      totalCost,
-      size,
-      totalQuantity,
-      minQuantity,
-    });
-
-    return newProduct.save();
+    // This method should now call addProduct, as the logic is similar
+    return this.addProduct(createProductDto);
   }
 
   // 📌 Get All Products (Paginated)
@@ -207,6 +216,10 @@ export class ProductService {
       .skip((page - 1) * limit)
       .limit(limit)
       .exec();
+  }
+
+  async getAllProduct() {
+    return this.productModel.find().exec();
   }
 
   // 📌 Get Expiring Products (Within 30 Days)
@@ -224,6 +237,7 @@ export class ProductService {
   async getLowStockProducts() {
     return this.productModel.find({ stock: { $lt: 5 } }).exec();
   }
-
-
 }
+
+
+

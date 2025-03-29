@@ -1,4 +1,4 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsMongoId, IsString } from 'class-validator';
 
 export class FilterProductDTO {
   @IsOptional()
@@ -6,6 +6,10 @@ export class FilterProductDTO {
   search?: string;
 
   @IsOptional()
-  @IsString()
+  @IsMongoId() // ✅ Ensures it's a valid ObjectId
   category?: string;
+
+  @IsOptional()
+  @IsMongoId() // ✅ Ensures it's a valid ObjectId
+  unitId?: string;
 }

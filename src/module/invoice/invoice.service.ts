@@ -1,15 +1,90 @@
-import { Injectable } from '@nestjs/common';
+// import { Injectable, Logger } from '@nestjs/common'; // Import Logger
+// import * as PDFDocument from 'pdfkit';
+// import * as fs from 'fs';
+
+// @Injectable()
+// export class InvoiceService {
+//   private readonly logger = new Logger(InvoiceService.name); // Add logger
+
+//   async generateInvoice(orderData: any): Promise<string> {
+//     return new Promise((resolve, reject) => {
+//       if (!orderData || !orderData.orderId) {
+//         this.logger.error('Order ID is undefined in orderData:', orderData); // Log error
+//         return reject(new Error('Order ID is undefined.'));
+//       }
+
+//       const filePath = `./invoices/Invoice_${orderData.orderId}.pdf`;
+//       const doc = new PDFDocument();
+
+//       const stream = fs.createWriteStream(filePath);
+//       doc.pipe(stream);
+
+//       doc.fontSize(20).text('Invoice', { align: 'center' });
+//       doc.moveDown();
+
+//       doc.fontSize(14).text(`Order ID: ${orderData.orderId}`);
+//       doc.text(`Customer: ${orderData.customerName}`);
+//       doc.text(`Payment Method: ${orderData.paymentMethod}`);
+//       doc.text(`Total Price: $${orderData.totalPrice}`);
+//       doc.text(`Delivery Address: ${orderData.deliveryAddress}`);
+//       doc.moveDown();
+
+//       if (orderData.items && Array.isArray(orderData.items)) {
+//         doc.fontSize(16).text('Order Items:', { underline: true });
+//         doc.moveDown();
+
+//         orderData.items.forEach((item, index) => {
+//           doc
+//             .fontSize(14)
+//             .text(
+//               `${index + 1}. ${item.name} - ${item.quantity} x $${item.price}`,
+//             );
+//         });
+//       } else {
+//         this.logger.error('Items array is undefined or not an array:', orderData); // Log error
+//         doc.fontSize(14).text('No items found for this order.');
+//       }
+
+//       doc.moveDown();
+//       doc.fontSize(12).text('Thank you for your order!', { align: 'center' });
+
+//       doc.end();
+
+//       stream.on('finish', () => resolve(filePath));
+//       stream.on('error', reject);
+//     });
+//   }
+// }
+
+// invoice/invoice.service.ts
+import { Injectable, Logger } from '@nestjs/common';
 import * as PDFDocument from 'pdfkit';
 import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class InvoiceService {
+  private readonly logger = new Logger(InvoiceService.name);
+
   async generateInvoice(orderData: any): Promise<string> {
     return new Promise((resolve, reject) => {
+      if (!orderData || !orderData.orderId) {
+        this.logger.error('Order ID is undefined in orderData:', orderData);
+        return reject(new Error('Order ID is undefined.'));
+      }
+
       const filePath = `./invoices/Invoice_${orderData.orderId}.pdf`;
+      const absoluteFilePath = path.resolve(filePath);
+      const directoryPath = path.dirname(absoluteFilePath);
+
+      // Create the directory if it doesn't exist
+      if (!fs.existsSync(directoryPath)) {
+        fs.mkdirSync(directoryPath, { recursive: true });
+        this.logger.log(`Created directory: ${directoryPath}`);
+      }
+
       const doc = new PDFDocument();
 
-      // Create a write stream for the PDF
       const stream = fs.createWriteStream(filePath);
       doc.pipe(stream);
 
@@ -26,16 +101,21 @@ export class InvoiceService {
       doc.moveDown();
 
       // Add items
-      doc.fontSize(16).text('Order Items:', { underline: true });
-      doc.moveDown();
+      if (orderData.items && Array.isArray(orderData.items)) {
+        doc.fontSize(16).text('Order Items:', { underline: true });
+        doc.moveDown();
 
-      orderData.items.forEach((item, index) => {
-        doc
-          .fontSize(14)
-          .text(
-            `${index + 1}. ${item.name} - ${item.quantity} x $${item.price}`,
-          );
-      });
+        orderData.items.forEach((item, index) => {
+          doc
+            .fontSize(14)
+            .text(
+              `${index + 1}. ${item.name} - ${item.quantity} x $${item.price}`,
+            );
+        });
+      } else {
+        this.logger.error('Items array is undefined or not an array:', orderData);
+        doc.fontSize(14).text('No items found for this order.');
+      }
 
       // Footer
       doc.moveDown();

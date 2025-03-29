@@ -17,6 +17,12 @@ export class Checkout {
   @Prop()
   totalPriceWithTax: number;
 
+  @Prop()
+  paymentMethod: number;
+
+  @Prop()
+  tax: number;
+
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User' })
   user: Types.ObjectId;
 
