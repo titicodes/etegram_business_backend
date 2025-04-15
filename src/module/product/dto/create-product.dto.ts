@@ -27,6 +27,10 @@ export class CreateProductDto {
   @IsNumber()
   quantity: number;
 
+  @IsNotEmpty()
+  @IsNumber()
+  stock: number;
+
   @IsOptional()
   @IsString()
   image?: string;
@@ -64,5 +68,6 @@ export class CreateProductDto {
 
   @IsOptional()
   @IsString()
-  brands?: string; // Add brands to the DTO
+  brands?: string; 
+  
 }

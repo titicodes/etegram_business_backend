@@ -10,12 +10,15 @@ import {
   Query,
   NotFoundException,
   Patch,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { FilterProductDTO } from './dto/filter-product.dto';
 import { Product } from './schema/product.schema';
+import { JwtAuthGuard } from '../auth/guard/jwtGuard';
 
 @Controller('products')
 export class ProductController {
@@ -30,28 +33,11 @@ export class ProductController {
   }
 
   /**
-   * 📦 Get all products with pagination
-   */
-  @Get('all')
-  async findAll(@Query('page') page: number = 1, @Query('limit') limit: number = 10) {
-    return this.productService.findAll(page, limit);
-  }
-
-  /**
-   * 🆔 Get a single product by ID
-   */
-  @Get(':id')
-  async getProduct(@Param('id') id: string): Promise<Product> {
-    console.log('Received ID:', id); // ✅ Check if the ID is correct
-    return this.productService.findOne(id);
-  }
-
-  /**
    * ➕ Add a new product (Scanning required for new products)
    */
   @Post()
-  async createProduct(@Body() createProductDto: CreateProductDto): Promise<Product> {
-    return this.productService.addProduct(createProductDto);
+  async createProduct(@Body() createProductDto: CreateProductDto, @Req() req): Promise<Product> {
+    return this.productService.addProduct(createProductDto, req.user._id);
   }
 
   /**
@@ -85,9 +71,12 @@ export class ProductController {
    * 📷 Scan & Add a new product if it does not exist in the search
    */
   @Post('scan-and-add')
-  async scanAndAddProduct(@Body() createProductDto: CreateProductDto): Promise<Product> {
-    return this.productService.scanAndAddProduct(createProductDto);
+
+  @UseGuards(JwtAuthGuard)
+  async create(@Body() dto: CreateProductDto, @Req() req) {
+    return this.productService.addProduct(dto, req.user._id);
   }
+
 
   @Get()
   getAllProducts(@Query('page') page: number, @Query('limit') limit: number) {
@@ -95,12 +84,26 @@ export class ProductController {
   }
 
   @Get('expiring')
-  getExpiringProducts() {
-    return this.productService.getExpiringProducts();
+  async getExpiringProducts(@Query('page') page: number, @Query('limit') limit: number) {
+    return this.productService.getExpiringProducts(page, limit);
   }
 
   @Get('low-stock')
-  getLowStockProducts() {
-    return this.productService.getLowStockProducts();
+  async getLowStockProducts(@Query('page') page: number, @Query('limit') limit: number) {
+    return this.productService.getLowStockProducts(page, limit);
   }
+
+  @Get('by-code/:code')
+  async getProductByBarcode(@Param('code') code: string): Promise<Product> {
+    return this.productService.getProductByBarcode(code);
+  }
+
+  /**
+  * 🆔 Get a single product by ID
+  */
+  @Get(':id')
+  async getProduct(@Param('id') id: string): Promise<Product> {
+    return this.productService.findOne(id);
+  }
+
 }

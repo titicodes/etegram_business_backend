@@ -1,70 +1,51 @@
-import { Prop, SchemaFactory } from "@nestjs/mongoose";
 
-export type SupplyDocument = Supply & Document;
-export class Supply{
 
- @Prop({ required: false })
-  phone: string;
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import mongoose, { Document, Types } from 'mongoose';
 
-  @Prop({ type: Number, default: 0 })
-  country: number;
+@Schema({ timestamps: true })
+export class Supply {
+    @Prop({ required: true })
+    businessName: string;
 
-  @Prop()
-  name: string;
+    @Prop({ required: true })
+    contactName: string;
 
-  @Prop({ type: String, default: null })
-  image: string;
+    @Prop({ required: true, unique: true })
+    email: string;
 
-  @Prop({ required: false })
-  state: string;
+    @Prop({ required: true })
+    phoneNumber: string;
 
-  @Prop({ type: Number, default: 0 })
-  area: number;
+    @Prop({ required: true })
+    currency: string;
 
-  @Prop()
-  lga: string;
+    @Prop({ required: true })
+    accountDetails: string;
 
-  @Prop({ type: String, default: null })
-  city: string;
+    @Prop({ required: true })
+    address: string;
 
-  @Prop({ required: false })
-  totalAmount: string;
+    @Prop({ required: true })
+    country: string;
 
-  @Prop({ type: Number, default: 0 })
-  unitPrice: number;
+    @Prop({ required: true })
+    state: string;
 
-  @Prop()
-  quantity: string;
+    @Prop({ required: true })
+    lga: string;
 
-  @Prop({ type: String, default: null })
-  category: string;
+    @Prop({ required: true })
+    area: string;
 
-  @Prop({ required: true })
-  businessName: string;
+    @Prop({ required: false })
+    extraMobile?: string;
 
-  @Prop({ required: true })
-  contactName: string;
+    @Prop({ default: Date.now })
+    createdAt: Date;
 
-  @Prop({ required: true, unique: true })
-  email: string;
-
-  @Prop({ required: true })
-  phoneNumber: string;
-
-  @Prop({ required: true })
-  currency: string;
-
-  @Prop({ required: true })
-  accountDetails: string;
-
-  @Prop({ required: true })
-  address: string;
-
-  @Prop({ default: Date.now })
-  createdAt: Date;
-
-  @Prop({ default: Date.now })
-  updatedAt: Date;
+    @Prop({ default: Date.now })
+    updatedAt: Date;
 }
-
+export type SupplyDocument = Supply & Document;
 export const SupplySchema = SchemaFactory.createForClass(Supply);

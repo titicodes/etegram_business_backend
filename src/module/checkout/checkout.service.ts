@@ -25,22 +25,25 @@ export class CheckoutService {
     ) { }
 
     async scanProduct(code: string, cart: { code: string; quantity: number }[]): Promise<{ product: Product; cart: { code: string; quantity: number }[] }> {
-        const product = await this.productModel.findOne({ code }).exec();
-        if (!product) throw new NotFoundException(`Product with barcode ${code} not found`);
-
-        const existingCartItem = cart.find(item => item.code === code);
-        if (existingCartItem) {
-            existingCartItem.quantity++;
-        } else {
-            cart.push({ code, quantity: 1 });
-        }
-
-        // ✅ Sync stock updates with Firebase
-        await this.firebaseService.updateProductStock(product);
-
-        return { product, cart };
-    }
-
+      const product = await this.productModel.findOne({ code }).exec();
+      if (!product) throw new NotFoundException(`Product with barcode ${code} not found`);
+  
+      if (product.stock < 1) {
+          throw new BadRequestException(`Product ${product.name} is out of stock`);
+      }
+  
+      const existingCartItem = cart.find(item => item.code === code);
+      if (existingCartItem) {
+          existingCartItem.quantity++;
+      } else {
+          cart.push({ code, quantity: 1 });
+      }
+  
+      await this.firebaseService.updateProductStock(product);
+  
+      return { product, cart };
+  }
+  
     async createCheckout(createCheckoutDto: CreateCheckoutDto, user: User): Promise<Checkout> {
         const { cart, discount = 0, tax = 0, paymentMethod } = createCheckoutDto;
 

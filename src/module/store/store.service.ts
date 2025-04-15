@@ -14,7 +14,7 @@ export class StoreService {
     ) { }
 
     async create(createStoreDto: CreateStoreDto): Promise<Store> {
-        const user = await this.userService.findOne({ _id: createStoreDto.owner }); // Pass filter object
+        const user = await this.userService.findOne({ _id: createStoreDto.owner }); 
 
         if (!user) {
             throw new NotFoundException('User not found');

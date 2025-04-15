@@ -17,8 +17,8 @@ export class CreateCheckoutDto {
 
   @IsString()
   @IsNotEmpty()
-  paymentMethod: string;  // <-- Add this field
-
+  paymentMethod: string; 
+  
   @IsOptional()
   @IsNumber()
   discount?: number;

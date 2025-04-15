@@ -2,10 +2,12 @@ import { ApiProperty } from "@nestjs/swagger";
 import { IsNotEmpty, IsNumber, IsString } from "class-validator";
 
 export class changePinDto{
+    @ApiProperty({ description: 'Change Pin', required: true })
     @IsNumber()
     @IsNotEmpty()
     newPin: number;
 
+    @ApiProperty({ description: 'Old Pin', required: true })
     @IsNumber()
     @IsNotEmpty()
     oldPin: number;
@@ -18,8 +20,9 @@ export class pinDto{
     @IsNumber()
     pin: number
     
+    @ApiProperty({ description: 'Confirm Pin', required: true })
     @IsNumber()
-    confirm_pin:number
+    confirmPin:number
 }
 
 export class testFundDto{

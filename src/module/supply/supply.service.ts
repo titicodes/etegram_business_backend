@@ -7,50 +7,71 @@ import { SupplyDto } from './dto/supply.dto';
 
 @Injectable()
 export class SupplierService {
-    constructor(
-        @InjectModel(Supply.name) private readonly supplierModel: Model<SupplyDocument>,
-    ) { }
+  constructor(
+    @InjectModel(Supply.name) private readonly supplierModel: Model<SupplyDocument>,
+  ) { }
 
-    async createSupplier(createSupplierDto: SupplyDto): Promise<Supply> {
-        const existingSupplier = await this.supplierModel.findOne({
-            email: createSupplierDto.email,
-        });
+  async createSupplier(createSupplierDto: SupplyDto): Promise<{ success: boolean; data: Supply; message: string }> {
+    try {
+        console.log('DTO:', createSupplierDto);
+
+        const existingSupplier = await this.supplierModel.findOne({ email: createSupplierDto.email });
 
         if (existingSupplier) {
             throw new ConflictException('Supplier with this email already exists');
         }
 
-        const createdSupplier = new this.supplierModel({ ...createSupplierDto });
-        return createdSupplier.save();
+        const createdSupplier = new this.supplierModel(createSupplierDto);
+
+        console.log('Created Supplier:', createdSupplier);
+
+        const savedSupplier = await createdSupplier.save();
+
+        console.log('Saved Supplier:', savedSupplier);
+
+        const fullSupplier = await this.supplierModel.findById(createdSupplier._id).exec();
+
+        console.log('Full Supplier:', fullSupplier);
+
+        return {
+            success: true,
+            data: fullSupplier,
+            message: 'Supplier created successfully',
+        };
+    } catch (error) {
+        // Re-throw the error
+        throw error;
+    }
+}
+
+
+async updateSupplier(id: string, updateSupplierDto: UpdateSupplierDto): Promise<Supply> {
+    const existingSupplier = await this.supplierModel.findById(id);
+
+    if (!existingSupplier) {
+      throw new NotFoundException('Supplier not found');
     }
 
-    async updateSupplier(id: string, updateSupplierDto: UpdateSupplierDto): Promise<Supply> {
-        const existingSupplier = await this.supplierModel.findById(id);
+    Object.assign(existingSupplier, updateSupplierDto);
+    return existingSupplier.save();
+  }
 
-        if (!existingSupplier) {
-            throw new NotFoundException('Supplier not found');
-        }
+  async findOne(filter: object): Promise<Supply | null> {
+    return this.supplierModel.findOne(filter).exec();
+  }
 
-        Object.assign(existingSupplier, updateSupplierDto);
-        return existingSupplier.save();
+  async findAll(keyword?: string): Promise<Supply[]> {
+    if (keyword) {
+      const regex = new RegExp(keyword, 'i');
+      return this.supplierModel.find({
+        $or: [
+          { businessName: regex },
+          { email: regex },
+          { phoneNumber: regex },
+        ],
+      }).exec();
+    } else {
+      return this.supplierModel.find().exec();
     }
-
-    async findOne(filter: object): Promise<Supply | null> {
-        return this.supplierModel.findOne(filter).exec();
-      }
-    
-      async findAll(keyword?: string): Promise<Supply[]> {
-        if (keyword) {
-          const regex = new RegExp(keyword, 'i');
-          return this.supplierModel.find({
-            $or: [
-              { businessName: regex },
-              { email: regex },
-              { phoneNumber: regex },
-            ],
-          }).exec();
-        } else {
-          return this.supplierModel.find().exec();
-        }
-      }
+  }
 }

@@ -18,7 +18,7 @@ export class Checkout {
   totalPriceWithTax: number;
 
   @Prop()
-  paymentMethod: number;
+  paymentMethod: string;
 
   @Prop()
   tax: number;

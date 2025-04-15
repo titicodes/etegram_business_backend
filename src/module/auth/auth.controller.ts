@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, Req, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { Public } from 'src/common/constants/decorators/public.decorator';
 import { ResponseMessage } from 'src/common/constants/decorators/response.decorator';
@@ -45,11 +45,18 @@ export class AuthController {
   async resetPassword(@Body() payload: ResetPasswordDto) {
     return await this.authService.resetPassword(payload);
   }
-
   @Public()
   @Post('logout')
   @ResponseMessage(RESPONSE_CONSTANT.AUTH.PASSWORD_RESET_SUCCESS)
-  async logout(@Body() userId: string) {
-    return await this.authService.logout(userId);
+  async logout(@Req() req) {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Authorization token missing or malformed');
+    }
+
+    const token = authHeader.split(' ')[1]; // Extract actual JWT token
+    return await this.authService.logout(token);
   }
+
 }

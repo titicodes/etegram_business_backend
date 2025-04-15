@@ -61,35 +61,6 @@ export class ProductService {
     };
   }
 
-  /**
-   * 📦 Get all products with pagination
-   */
-  async findAll(page: number = 1, limit: number = 10) {
-    const skip = (page - 1) * limit;
-    const products = await this.productModel
-      .find()
-      .skip(skip)
-      .limit(limit)
-      .populate('categoryId')
-      .populate('unitId')
-      .exec();
-
-    if (!products.length) {
-      throw new HttpException('No products found', HttpStatus.NOT_FOUND);
-    }
-
-    const total = await this.productModel.countDocuments();
-
-    return {
-      data: products,
-      metadata: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
-  }
 
   /**
    * 🆔 Get a single product by ID
@@ -114,38 +85,30 @@ export class ProductService {
   /**
     * ➕ Add a new product (Scanning required for new products)
     */
-  async addProduct(createProductDTO: CreateProductDto): Promise<Product> {
+  async addProduct(createProductDTO: CreateProductDto, ownerId: string): Promise<Product> {
     const existingProduct = await this.searchProductByCode(createProductDTO.code);
     if (existingProduct) throw new NotFoundException('Product code already exists');
-
+  
     const { category, brands, ...rest } = createProductDTO;
-    let categoryEntity: ProductCategory | null = null;
-
+    let categoryEntity: ProductCategory;
+  
     if (category) {
       categoryEntity = await this.categoryService.findOrCreate(category);
-      if (!categoryEntity) {
-        throw new NotFoundException('Failed to find or create category.');
-      }
     } else {
-      // Handle the case where no category is provided (e.g., set a default)
-      const defaultCategoryName = 'Uncategorized';
-      categoryEntity = await this.categoryService.findOrCreate(defaultCategoryName);
-      if (!categoryEntity) {
-        throw new Error('Could not find or create default category.');
-      }
+      categoryEntity = await this.categoryService.findOrCreate('Uncategorized');
     }
-
+  
     const newProduct = new this.productModel({
       ...rest,
       categoryId: categoryEntity._id,
-      category: category, // Save the category name
-      brands: brands, // Save the brand
+      category: category,
+      brands: brands,
+      owner: ownerId, // 💥 This is the key change
     });
+  
     return newProduct.save();
   }
-
-
-
+  
   /**
    * ✏️ Update an existing product
    */
@@ -205,11 +168,32 @@ export class ProductService {
    * 📷 Scan & Add a new product if it does not exist in the search
    */
 
-  async scanAndAddProduct(createProductDto: CreateProductDto): Promise<Product> {
-    // This method should now call addProduct, as the logic is similar
-    return this.addProduct(createProductDto);
+  async scanAndAddProduct(createProductDto: CreateProductDto, ownerId: string): Promise<Product> {
+    return this.addProduct(createProductDto, ownerId);
   }
-
+  
+  async findAll(userId: string, page = 1, limit = 10) {
+    const skip = (page - 1) * limit;
+    const products = await this.productModel
+      .find({ owner: userId }) // 👈 Filter by owner
+      .skip(skip)
+      .limit(limit)
+      .populate('categoryId')
+      .exec();
+  
+    const total = await this.productModel.countDocuments({ owner: userId });
+  
+    return {
+      data: products,
+      metadata: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+  
   // 📌 Get All Products (Paginated)
   async getAllProducts(page: number, limit: number) {
     return this.productModel.find()
@@ -223,20 +207,78 @@ export class ProductService {
   }
 
   // 📌 Get Expiring Products (Within 30 Days)
-  async getExpiringProducts() {
+  async getExpiringProducts(page: number = 1, limit: number = 10) {
     const today = new Date();
     const thirtyDaysLater = new Date();
     thirtyDaysLater.setDate(today.getDate() + 30);
-
-    return this.productModel.find({
+  
+    const skip = (page - 1) * limit;
+  
+    const products = await this.productModel
+      .find({
+        expiryDate: { $gte: today, $lte: thirtyDaysLater },
+      })
+      .skip(skip)
+      .limit(limit)
+      .exec();
+  
+    const total = await this.productModel.countDocuments({
       expiryDate: { $gte: today, $lte: thirtyDaysLater },
-    }).exec();
+    });
+  
+    return {
+      data: products,
+      metadata: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
+  
 
   // 📌 Get Low Stock Products (Stock < 5)
-  async getLowStockProducts() {
-    return this.productModel.find({ stock: { $lt: 5 } }).exec();
+  async getLowStockProducts(page: number = 1, limit: number = 10) {
+    const skip = (page - 1) * limit;
+  
+    const products = await this.productModel
+      .find({ stock: { $lt: 5 } })
+      .skip(skip)
+      .limit(limit)
+      .exec();
+  
+    const total = await this.productModel.countDocuments({ stock: { $lt: 5 } });
+  
+    return {
+      data: products,
+      metadata: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
+  
+
+  /**
+ * 📦 Get full product details by barcode for checkout scanning
+ */
+async getProductByBarcode(code: string): Promise<Product> {
+  const product = await this.productModel.findOne({ code }).populate('categoryId').populate('unitId').exec();
+
+  if (!product) {
+    throw new NotFoundException(`Product with barcode ${code} not found`);
+  }
+
+  if (product.stock < 1) {
+    throw new BadRequestException(`Product ${product.name} is out of stock`);
+  }
+
+  return product;
+}
+
 }
 
 

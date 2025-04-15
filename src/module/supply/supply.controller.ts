@@ -1,31 +1,46 @@
-import { Controller, Post, Body, Patch, Param, Get, Query } from '@nestjs/common';
-import { UpdateSupplierDto } from './dto/update-supply.dto';
-import { SupplierService } from './supply.service';
+import { Controller, Post, Body, Get, Param, Put, Delete } from '@nestjs/common';
 import { SupplyDto } from './dto/supply.dto';
-import { Supply } from './schema/supply.schema';
+import { UpdateSupplierDto } from './dto/update-supply.dto';
+import { ApiTags } from '@nestjs/swagger';
+import { SupplierService } from './supply.service';
 
-
+@ApiTags('suppliers')
 @Controller('suppliers')
 export class SupplierController {
     constructor(private readonly supplierService: SupplierService) { }
 
     @Post()
-    async createSupplier(@Body() createSupplierDto: SupplyDto): Promise<Supply> {
-        return this.supplierService.createSupplier(createSupplierDto);
+    async createSupplier(@Body() createSupplierDto: SupplyDto) {
+        const result = await this.supplierService.createSupplier(createSupplierDto);
+    
+        console.log('Controller Result:', result); // Debugging
+    
+        return {
+            success: result.success,
+            data: result.data, // Ensure this includes the full supplier data
+            message: result.message,
+        };
     }
+    
 
-    @Patch(':id')
-    async updateSupplier(@Param('id') id: string, @Body() updateSupplierDto: UpdateSupplierDto): Promise<Supply> {
+
+    @Put(':id')
+    async updateSupplier(@Param('id') id: string, @Body() updateSupplierDto: UpdateSupplierDto) {
         return this.supplierService.updateSupplier(id, updateSupplierDto);
     }
 
+    @Get(':id')
+    async findOne(@Param('id') id: string) {
+        return this.supplierService.findOne({ _id: id });
+    }
+
     @Get()
-    async findAll(@Query('keyword') keyword?: string): Promise<Supply[]> {
+    async findAll(@Param('keyword') keyword?: string) {
         return this.supplierService.findAll(keyword);
     }
 
-    @Get(':id')
-    async findOne(@Param('id') id: string): Promise<Supply | null> {
-        return this.supplierService.findOne({ _id: id });
-    }
+    // @Delete(':id')
+    // async remove(@Param('id') id: string) {
+    //     return this.supplierService.remove(id);
+    // }
 }

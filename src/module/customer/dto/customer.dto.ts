@@ -1,16 +1,16 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsString, IsNotEmpty, IsOptional, IsNumber } from "class-validator";
+import { IsString, IsNotEmpty, IsOptional, IsDateString } from "class-validator";
 
-export class SupplyDto {
+export class CustomerDto {
   @ApiProperty({ description: 'The business name of the supplier' })
   @IsString()
   @IsNotEmpty()
-  businessName: string;
+  firstName: string;
 
   @ApiProperty({ description: 'The contact name of the supplier' })
   @IsString()
   @IsNotEmpty()
-  contactName: string;
+  lastName: string;
 
   @ApiProperty({ description: 'The email of the supplier' })
   @IsString()
@@ -19,22 +19,22 @@ export class SupplyDto {
 
   @ApiProperty({ description: 'The phone number of the supplier' })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   phoneNumber: string;
 
   @ApiProperty({ description: 'The currency of the supplier' })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   currency: string;
 
-  @ApiProperty({ description: 'The account details of the supplier' })
-  @IsString()
+  @ApiProperty({ description: 'The Date of birth details of the supplier' })
   @IsNotEmpty()
-  accountDetails: string;
+  @IsDateString() // Validates that the value is a valid ISO 8601 date string
+  birthday: string;
 
   @ApiProperty({ description: 'The address of the supplier' })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   address: string;
 
   @ApiProperty({ description: 'The country of the supplier' })
@@ -44,26 +44,31 @@ export class SupplyDto {
 
   @ApiProperty({ description: 'The state of the supplier' })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   state: string;
 
-  @ApiProperty({ description: 'The local government area of the supplier' })
+  @ApiProperty({ description: 'The area of the supplier' })
   @IsString()
   @IsNotEmpty()
-  lga: string;
-
-  @ApiProperty({ description: 'The area of the supplier' })
-  @IsString() // Change to IsNumber() if area should be numeric
-  @IsNotEmpty()
   area: string;
+
+  @ApiProperty({ description: 'The extra mobile number of the supplier' })
+  @IsString()
+  @IsOptional()
+  extraPhone: string;
 
   @ApiProperty({ description: 'The business type of the supplier', required: false })
   @IsString()
   @IsOptional()
-  supplierType?: string;
+  supplierType: string;
 
-  @ApiProperty({ description: 'The extra mobile number of the supplier', required: false })
+  @ApiProperty({ description: 'The local government area of the supplier' })
   @IsString()
   @IsOptional()
-  extraMobile?: string;
+  lga: string;
+
+  @ApiProperty({ description: 'Additional details of the supplier' })
+  @IsString()
+  @IsOptional()
+  extraDetails: string;
 }

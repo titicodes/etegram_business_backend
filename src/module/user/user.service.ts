@@ -9,11 +9,12 @@ import { BaseHelper } from 'src/utils/helper.util';
 import { InjectModel } from '@nestjs/mongoose';
 import mongoose, { Model } from 'mongoose';
 import { User, UserDocument } from './schema/user.schema';
-import { UserRoleEnum } from 'src/common/constants/enums/user.enum';
 import { CoreService } from 'src/common/constants/core/service.core';
 import { UserRepository } from './user.repository';
 import { pinDto, changePinDto } from './dto/change-pin.dto';
 import { JwtService } from '@nestjs/jwt';
+import { ObjectId } from 'mongodb';
+
 
 @Injectable()
 export class UserService extends CoreService<UserRepository> {
@@ -27,55 +28,55 @@ export class UserService extends CoreService<UserRepository> {
 
   async createUser(dto: CreateUserDto) {
     try {
-        // Check if email already exists
-        const existingUser = await this.userModel.findOne({ email: dto.email });
+      // Check if email already exists
+      const existingUser = await this.userModel.findOne({ email: dto.email });
 
-        if (existingUser) {
-            throw new BadRequestException('Email already exists');
-        }
+      if (existingUser) {
+        throw new BadRequestException('Email already exists');
+      }
 
-        // Hash password
-        const hashedPassword = await BaseHelper.hashData(dto.password);
+      // Hash password
+      const hashedPassword = await BaseHelper.hashData(dto.password);
 
-        // Create user object (Mongoose will generate _id automatically)
-        const newCustomer = new this.userModel({
-            ...dto,
-            password: hashedPassword,
-        });
+      // Create user object (Mongoose will generate _id automatically)
+      const newCustomer = new this.userModel({
+        ...dto,
+        password: hashedPassword,
+      });
 
-        await newCustomer.save(); // Save user
+      await newCustomer.save(); // Save user
 
-        // Generate JWT tokens
-        const tokenPayload = { _id: newCustomer._id };
-        const accessToken = this.jwtService.sign(tokenPayload);
-        const refreshToken = this.jwtService.sign(
-            { _id: newCustomer._id },
-            {
-                secret: process.env.JWT_REFRESH_SECRET,
-                expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME,
-            },
-        );
+      // Generate JWT tokens
+      const tokenPayload = { _id: newCustomer._id };
+      const accessToken = this.jwtService.sign(tokenPayload);
+      const refreshToken = this.jwtService.sign(
+        { _id: newCustomer._id },
+        {
+          secret: process.env.JWT_REFRESH_SECRET,
+          expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME,
+        },
+      );
 
-        await this.saveRefreshToken(newCustomer._id.toString(), refreshToken);
+      await this.saveRefreshToken(newCustomer._id.toString(), refreshToken);
 
-        return {
-            success: true,
-            customer: newCustomer,
-            email: dto.email,
-            phone: dto.phone,
-            accessToken,
-            refreshToken,
-        };
+      return {
+        success: true,
+        customer: newCustomer,
+        email: dto.email,
+        phone: dto.phone,
+        accessToken,
+        refreshToken,
+      };
     } catch (err) {
-        // Handle MongoDB duplicate key error
-        if (err.code === 11000) {
-            throw new BadRequestException(
-                `Duplicate entry detected: ${JSON.stringify(err.keyValue)}`
-            );
-        }
-        throw new BadRequestException(err.message || 'Failed to create customer');
+      // Handle MongoDB duplicate key error
+      if (err.code === 11000) {
+        throw new BadRequestException(
+          `Duplicate entry detected: ${JSON.stringify(err.keyValue)}`
+        );
+      }
+      throw new BadRequestException(err.message || 'Failed to create customer');
     }
-}
+  }
 
 
   async findByIdAndUpdate(id: string, data: any): Promise<UserDocument> {
@@ -140,37 +141,56 @@ export class UserService extends CoreService<UserRepository> {
     return true;
   }
 
+
   async updatePin(id: string, details: pinDto) {
     const user = await this._find(id);
-    const { pin, confirm_pin } = details;
-    if (pin !== confirm_pin) {
-      throw new BadRequestException('pin must be same with confirm pin');
+    const { pin, confirmPin } = details;
+
+    if (pin !== confirmPin) {
+      throw new BadRequestException('Pin must match the confirm pin.');
     }
+
     if (pin === 1111) {
-      throw new BadRequestException(
-        "can't use default pin, choose another pin",
-      );
+      throw new BadRequestException("Can't use default pin, choose another pin.");
     }
+
     user.pin = pin;
     user.defaultPinChanged = true;
-    return user.save();
+    return await user.save();
   }
+
 
   async changePin(id: string, details: changePinDto) {
     const user = await this._find(id);
     const { newPin, oldPin } = details;
+
     if (user.pin !== oldPin) {
-      throw new BadRequestException('Invalid Pin format');
+      throw new BadRequestException('Invalid current pin.');
     }
+
+    if (newPin === oldPin) {
+      throw new BadRequestException('New pin cannot be the same as the old pin.');
+    }
+
     user.pin = newPin;
-    return user.save();
+    return await user.save();
   }
 
   async _find(id: string) {
-    const user = await this.userModel.findById({ id });
-    if (!user) throw new NotFoundException('user not found');
-    return user;
+    try {
+      const userId = new ObjectId(id); // Ensure conversion to ObjectId
+      return await this.userModel.findById(userId).exec();
+    } catch (error) {
+      throw new BadRequestException('Invalid user ID format.');
+    }
   }
+
+
+  // async _find(id: string) {
+  //   const user = await this.userModel.findById({ id });
+  //   if (!user) throw new NotFoundException('user not found');
+  //   return user;
+  // }
 
   // async getUser(userId: string): Promise<UserDocument> {
   //   const user = await this.userModel
@@ -201,16 +221,16 @@ export class UserService extends CoreService<UserRepository> {
 
   async updateUserFcmToken(userId: string, fcmToken: string): Promise<User> {
     const updatedUser = await this.userModel.findByIdAndUpdate(
-        userId,
-        { fcmToken: fcmToken },
-        { new: true },
+      userId,
+      { fcmToken: fcmToken },
+      { new: true },
     ).exec();
 
     if (!updatedUser) {
-        throw new NotFoundException(`User with ID ${userId} not found`);
+      throw new NotFoundException(`User with ID ${userId} not found`);
     }
 
     return updatedUser;
-}
+  }
 
 }

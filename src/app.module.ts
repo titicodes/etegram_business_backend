@@ -21,6 +21,9 @@ import { EmailModule } from './module/email/email.module';
 import { StoreModule } from './module/store/store.module';
 import { SupplierModule } from './module/supply/supply.module';
 import { PaymentMethodModule } from './module/payment-method/payment-method.module';
+import { CustomerModule } from './module/customer/customer.module';
+import { ExpenseModule } from './module/expenses/expenses.module';
+import { DeliveriesModule } from './module/deliveries/deliveries.module';
 
 
 @Module({
@@ -55,9 +58,12 @@ import { PaymentMethodModule } from './module/payment-method/payment-method.modu
     EmailModule,
     StoreModule,
     SupplierModule,
-    PaymentMethodModule
+    PaymentMethodModule,
+    CustomerModule,
+    ExpenseModule,
+    DeliveriesModule
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
