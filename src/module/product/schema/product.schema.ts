@@ -15,6 +15,7 @@ export class Product {
   @Prop()
   price: number;
 
+
   @Prop()
   category: string; // Now storing the category name
 
