@@ -85,30 +85,31 @@ export class ProductService {
   /**
     * ➕ Add a new product (Scanning required for new products)
     */
+
   async addProduct(createProductDTO: CreateProductDto, ownerId: string): Promise<Product> {
     const existingProduct = await this.searchProductByCode(createProductDTO.code);
     if (existingProduct) throw new NotFoundException('Product code already exists');
-  
+
     const { category, brands, ...rest } = createProductDTO;
+
     let categoryEntity: ProductCategory;
-  
+
     if (category) {
       categoryEntity = await this.categoryService.findOrCreate(category);
     } else {
       categoryEntity = await this.categoryService.findOrCreate('Uncategorized');
     }
-  
+
     const newProduct = new this.productModel({
       ...rest,
       categoryId: categoryEntity._id,
       category: category,
       brands: brands,
-      owner: ownerId, // 💥 This is the key change
+      owner: ownerId,
     });
-  
+
     return newProduct.save();
   }
-  
   /**
    * ✏️ Update an existing product
    */
@@ -125,7 +126,7 @@ export class ProductService {
       if (!categoryEntity) {
         throw new NotFoundException('Failed to find or create category.');
       }
-      existingProduct.categoryId = categoryEntity._id as Types.ObjectId; // Explicit cast (if needed temporarily)
+      existingProduct.categoryId = categoryEntity._id as Types.ObjectId;
       existingProduct.category = category;
     }
 
@@ -133,7 +134,7 @@ export class ProductService {
       existingProduct.brands = brands;
     }
 
-    Object.assign(existingProduct, rest); // Assign other update properties
+    Object.assign(existingProduct, rest);
     return existingProduct.save();
   }
 
@@ -171,7 +172,7 @@ export class ProductService {
   async scanAndAddProduct(createProductDto: CreateProductDto, ownerId: string): Promise<Product> {
     return this.addProduct(createProductDto, ownerId);
   }
-  
+
   async findAll(userId: string, page = 1, limit = 10) {
     const skip = (page - 1) * limit;
     const products = await this.productModel
@@ -180,9 +181,9 @@ export class ProductService {
       .limit(limit)
       .populate('categoryId')
       .exec();
-  
+
     const total = await this.productModel.countDocuments({ owner: userId });
-  
+
     return {
       data: products,
       metadata: {
@@ -193,7 +194,7 @@ export class ProductService {
       },
     };
   }
-  
+
   // 📌 Get All Products (Paginated)
   async getAllProducts(page: number, limit: number) {
     return this.productModel.find()
@@ -211,9 +212,9 @@ export class ProductService {
     const today = new Date();
     const thirtyDaysLater = new Date();
     thirtyDaysLater.setDate(today.getDate() + 30);
-  
+
     const skip = (page - 1) * limit;
-  
+
     const products = await this.productModel
       .find({
         expiryDate: { $gte: today, $lte: thirtyDaysLater },
@@ -221,11 +222,11 @@ export class ProductService {
       .skip(skip)
       .limit(limit)
       .exec();
-  
+
     const total = await this.productModel.countDocuments({
       expiryDate: { $gte: today, $lte: thirtyDaysLater },
     });
-  
+
     return {
       data: products,
       metadata: {
@@ -236,20 +237,20 @@ export class ProductService {
       },
     };
   }
-  
+
 
   // 📌 Get Low Stock Products (Stock < 5)
   async getLowStockProducts(page: number = 1, limit: number = 10) {
     const skip = (page - 1) * limit;
-  
+
     const products = await this.productModel
       .find({ stock: { $lt: 5 } })
       .skip(skip)
       .limit(limit)
       .exec();
-  
+
     const total = await this.productModel.countDocuments({ stock: { $lt: 5 } });
-  
+
     return {
       data: products,
       metadata: {
@@ -260,24 +261,51 @@ export class ProductService {
       },
     };
   }
-  
+
 
   /**
  * 📦 Get full product details by barcode for checkout scanning
  */
-async getProductByBarcode(code: string): Promise<Product> {
-  const product = await this.productModel.findOne({ code }).populate('categoryId').populate('unitId').exec();
+  async getProductByBarcode(code: string): Promise<Product> {
+    const product = await this.productModel.findOne({ code }).populate('categoryId').populate('unitId').exec();
 
-  if (!product) {
-    throw new NotFoundException(`Product with barcode ${code} not found`);
+    if (!product) {
+      throw new NotFoundException(`Product with barcode ${code} not found`);
+    }
+
+    if (product.stock < 1) {
+      throw new BadRequestException(`Product ${product.name} is out of stock`);
+    }
+
+    return product;
   }
 
-  if (product.stock < 1) {
-    throw new BadRequestException(`Product ${product.name} is out of stock`);
-  }
+  /**
+     * 📊 Get a summary of the inventory: total cost, total selling price, and total stock.
+     */
+  async getInventorySummary(): Promise<{
+    totalCost: number;
+    totalSellingPrice: number;
+    totalStock: number;
+  }> {
+    const products = await this.productModel.find().exec();
 
-  return product;
-}
+    let totalCost = 0;
+    let totalSellingPrice = 0;
+    let totalStock = 0;
+
+    for (const product of products) {
+      totalCost += (product.totalCost || 0) * (product.stock || 0); 
+      totalSellingPrice += (product.unitPrice || 0) * (product.stock || 0);
+      totalStock += product.stock || 0;
+    }
+
+    return {
+      totalCost: parseFloat(totalCost.toFixed(2)),
+      totalSellingPrice: parseFloat(totalSellingPrice.toFixed(2)), 
+      totalStock,
+    };
+  }
 
 }
 

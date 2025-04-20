@@ -1,4 +1,3 @@
-// products/product.controller.ts
 import {
   Controller,
   Get,
@@ -21,6 +20,7 @@ import { Product } from './schema/product.schema';
 import { JwtAuthGuard } from '../auth/guard/jwtGuard';
 
 @Controller('products')
+@UseGuards(JwtAuthGuard)
 export class ProductController {
   constructor(private readonly productService: ProductService) { }
 
@@ -28,12 +28,12 @@ export class ProductController {
    * 🔍 Search products using name, category, or keyword
    */
   @Get('search')
-  async searchProducts(@Query() filterProductDTO: FilterProductDTO): Promise<any> { // Updated return type
-    return this.productService.getFilteredProducts(filterProductDTO);
+  async searchProducts(@Query() filterProductDTO: FilterProductDTO): Promise<any> {
+    return this.productService.getFilteredProducts(filterProductDTO, 1, 10);
   }
 
   /**
-   * ➕ Add a new product (Scanning required for new products)
+   * ➕ Add a new product
    */
   @Post()
   async createProduct(@Body() createProductDto: CreateProductDto, @Req() req): Promise<Product> {
@@ -68,28 +68,35 @@ export class ProductController {
   }
 
   /**
-   * 📷 Scan & Add a new product if it does not exist in the search
+   * 📷 Scan & Add a new product
    */
   @Post('scan-and-add')
-
-  @UseGuards(JwtAuthGuard)
-  async create(@Body() dto: CreateProductDto, @Req() req) {
+  async createScannedProduct(@Body() dto: CreateProductDto, @Req() req) {
     return this.productService.addProduct(dto, req.user._id);
   }
 
-
   @Get()
-  getAllProducts(@Query('page') page: number, @Query('limit') limit: number) {
-    return this.productService.getAllProducts(page, limit);
+  async getAllProducts(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @Req() req, // To access user ID
+  ) {
+    return this.productService.findAll(req.user._id, page, limit);
   }
 
   @Get('expiring')
-  async getExpiringProducts(@Query('page') page: number, @Query('limit') limit: number) {
+  async getExpiringProducts(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
     return this.productService.getExpiringProducts(page, limit);
   }
 
   @Get('low-stock')
-  async getLowStockProducts(@Query('page') page: number, @Query('limit') limit: number) {
+  async getLowStockProducts(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
     return this.productService.getLowStockProducts(page, limit);
   }
 
@@ -99,8 +106,27 @@ export class ProductController {
   }
 
   /**
-  * 🆔 Get a single product by ID
-  */
+   * ➕ Add a new product (Manual entry, optional scanning)
+   */
+  @Post('manual-add')
+  @UseGuards(JwtAuthGuard)
+  async createManualProduct(@Body() createProductDto: CreateProductDto, @Req() req): Promise<Product> {
+    return this.productService.addProduct(createProductDto, req.user._id);
+  }
+
+
+  @Get('inventory-summary')
+  async getInventorySummary(): Promise<{
+    totalCost: number;
+    totalSellingPrice: number;
+    totalStock: number;
+  }> {
+    return this.productService.getInventorySummary();
+  }
+
+  /**
+   * 🆔 Get a single product by ID
+   */
   @Get(':id')
   async getProduct(@Param('id') id: string): Promise<Product> {
     return this.productService.findOne(id);

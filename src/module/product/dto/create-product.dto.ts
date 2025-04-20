@@ -69,5 +69,9 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   brands?: string; 
+
+  @IsOptional() // Make it required
+  @IsString()
+  owner: string; 
   
 }
