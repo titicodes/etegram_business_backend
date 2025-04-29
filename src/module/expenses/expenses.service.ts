@@ -17,7 +17,7 @@ export class ExpenseService {
         if (!user || !user._id) {
             throw new InternalServerErrorException('User information is missing.');
         }
-    
+
         try {
             this.logger.log('Creating new expense...');
             const expense = new this.expenseModel({ ...createExpenseDto, user: user._id });
@@ -29,7 +29,7 @@ export class ExpenseService {
             throw new InternalServerErrorException('Failed to create expense.');
         }
     }
-    
+
 
 
     async findAllExpenses(user: User): Promise<Expense[]> {

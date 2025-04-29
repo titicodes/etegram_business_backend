@@ -9,6 +9,7 @@ import {
   Request,
   BadRequestException,
   Query,
+  Req,
 } from '@nestjs/common';
 import { CheckoutService } from './checkout.service';
 import { Checkout } from './schema/checkout.schema';
@@ -29,9 +30,11 @@ export class CheckoutController {
    */
   @Get('scan/:code')
   async scanProduct(
-    @Param('code') code: string,
-    @Query('cart') cartString?: string,
+    @Param('code') code: string, // Required
+    @Request() req, // Required
+    @Query('cart') cartString?: string, // Optional (now at the end)
   ): Promise<{ product: Product; cart: { code: string; quantity: number }[] }> {
+    const user = req.user;
     let cart: { code: string; quantity: number }[] = [];
 
     if (cartString) {
@@ -42,7 +45,7 @@ export class CheckoutController {
       }
     }
 
-    return this.checkoutService.scanProduct(code, cart);
+    return this.checkoutService.scanProduct(code, cart, user.id);
   }
 
   /**
@@ -52,7 +55,7 @@ export class CheckoutController {
   @Post()
   async createCheckout(
     @Body() createCheckoutDto: CreateCheckoutDto,
-    @Request() req,
+    @Req() req,
   ): Promise<Checkout> {
     const user = req.user;
     console.log('🛠️ Checkout User:', user); // Debug log

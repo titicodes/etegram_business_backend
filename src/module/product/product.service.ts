@@ -8,12 +8,14 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ProductCategoriesService } from '../product-category/product-category.service';
 import { ProductCategory } from '../product-category/schema/product-category.schema';
+import { StoreDocument } from '../store/schema/store.schema';
 
 @Injectable()
 export class ProductService {
   constructor(
     @InjectModel(Product.name)
     private readonly productModel: Model<ProductDocument>,
+    private readonly storeModel: Model<StoreDocument>,
     private readonly categoryService: ProductCategoriesService,
   ) { }
 
@@ -65,12 +67,17 @@ export class ProductService {
   /**
    * 🆔 Get a single product by ID
    */
-  async findOne(id: string): Promise<Product> {
+  async findOne(id: string, userId?: string): Promise<Product> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid product ID format');
     }
 
-    const product = await this.productModel.findById(id).populate('categoryId').populate('unitId').exec();
+    const query: any = { _id: id };
+    if (userId) {
+      query.owner = userId;
+    }
+
+    const product = await this.productModel.findById(query).populate('categoryId').populate('unitId').exec();
     if (!product) throw new NotFoundException('Product not found');
     return product;
   }
@@ -87,10 +94,16 @@ export class ProductService {
     */
 
   async addProduct(createProductDTO: CreateProductDto, ownerId: string): Promise<Product> {
-    const existingProduct = await this.searchProductByCode(createProductDTO.code);
-    if (existingProduct) throw new NotFoundException('Product code already exists');
+    const { code, store: storeId, category, brands, ...rest } = createProductDTO;
 
-    const { category, brands, ...rest } = createProductDTO;
+    // Verify if the store belongs to the owner (optional, but recommended for security)
+    const storeExists = await this.storeModel.exists({ _id: storeId, owner: ownerId });
+    if (!storeExists) {
+      throw new BadRequestException('Store not found or does not belong to the user.');
+    }
+
+    const existingProduct = await this.productModel.findOne({ code, owner: ownerId, store: storeId }).exec();
+    if (existingProduct) throw new ConflictException('Product code already exists in this store');
 
     let categoryEntity: ProductCategory;
 
@@ -106,6 +119,7 @@ export class ProductService {
       category: category,
       brands: brands,
       owner: ownerId,
+      store: storeId, // Set the store ID
     });
 
     return newProduct.save();
@@ -116,10 +130,11 @@ export class ProductService {
   /**
     * ✏️ Update an existing product
     */
-  async updateProduct(id: string, updateProductDTO: UpdateProductDto): Promise<Product> {
+  async updateProduct(id: string, updateProductDTO: UpdateProductDto, userId: string): Promise<Product> {
+    const existingProduct = await this.productModel.findOne({ _id: id, owner: userId });
+    if (!existingProduct) throw new NotFoundException('Product not found or you do not have permission to update it');
+
     const { category, brands, ...rest } = updateProductDTO;
-    const existingProduct = await this.productModel.findById(id);
-    if (!existingProduct) throw new NotFoundException('Product not found');
 
     if (category) {
       const categoryEntity = await this.categoryService.findOrCreate(category);
@@ -141,9 +156,9 @@ export class ProductService {
   /**
    * ❌ Delete a product
    */
-  async deleteProduct(id: string): Promise<{ deleted: boolean }> {
-    const result = await this.productModel.findByIdAndDelete(id);
-    return { deleted: !!result };
+  async deleteProduct(id: string, userId: string): Promise<{ deleted: boolean }> {
+    const result = await this.productModel.deleteOne({ _id: id, owner: userId });
+    return { deleted: result.deletedCount > 0 };
   }
 
   /**
@@ -173,16 +188,19 @@ export class ProductService {
     return this.addProduct(createProductDto, ownerId);
   }
 
-  async findAll(userId: string, page = 1, limit = 10) {
+  // In product.service.ts
+  async findAll(userId: string, page: number, limit: number) {
     const skip = (page - 1) * limit;
+    const query = { owner: userId }; // Removed store
+
     const products = await this.productModel
-      .find({ owner: userId }) // 👈 Filter by owner
+      .find(query)
       .skip(skip)
       .limit(limit)
       .populate('categoryId')
       .exec();
 
-    const total = await this.productModel.countDocuments({ owner: userId });
+    const total = await this.productModel.countDocuments(query);
 
     return {
       data: products,
@@ -194,6 +212,7 @@ export class ProductService {
       },
     };
   }
+
 
   // 📌 Get All Products (Paginated)
   async getAllProducts(page: number, limit: number) {
@@ -263,6 +282,18 @@ export class ProductService {
   }
 
 
+  // 📌 Combined Function to Fetch Expiring and Low Stock Products
+  async getExpiringAndLowStockProducts(page: number = 1, limit: number = 10) {
+    const expiring = await this.getExpiringProducts(page, limit);
+    const lowStock = await this.getLowStockProducts(page, limit);
+
+    return {
+      expiringProducts: expiring,
+      lowStockProducts: lowStock,
+    };
+  }
+
+
   /**
  * 📦 Get full product details by barcode for checkout scanning
  */
@@ -295,14 +326,14 @@ export class ProductService {
     let totalStock = 0;
 
     for (const product of products) {
-      totalCost += (product.totalCost || 0) * (product.stock || 0); 
+      totalCost += (product.totalCost || 0) * (product.stock || 0);
       totalSellingPrice += (product.unitPrice || 0) * (product.stock || 0);
       totalStock += product.stock || 0;
     }
 
     return {
       totalCost: parseFloat(totalCost.toFixed(2)),
-      totalSellingPrice: parseFloat(totalSellingPrice.toFixed(2)), 
+      totalSellingPrice: parseFloat(totalSellingPrice.toFixed(2)),
       totalStock,
     };
   }

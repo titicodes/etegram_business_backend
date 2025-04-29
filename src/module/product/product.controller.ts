@@ -18,6 +18,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { FilterProductDTO } from './dto/filter-product.dto';
 import { Product } from './schema/product.schema';
 import { JwtAuthGuard } from '../auth/guard/jwtGuard';
+import { PaginationQueryDto } from './dto/pagination-querry.dto';
 
 @Controller('products')
 @UseGuards(JwtAuthGuard)
@@ -33,27 +34,31 @@ export class ProductController {
   }
 
   /**
-   * ➕ Add a new product
+   * ➕ Add a new product (Manual Entry)
    */
   @Post()
   async createProduct(@Body() createProductDto: CreateProductDto, @Req() req): Promise<Product> {
-    return this.productService.addProduct(createProductDto, req.user._id);
+    return this.productService.addProduct(createProductDto, req.user._id.toString());
   }
 
   /**
    * ✏️ Update an existing product
    */
   @Put(':id')
-  async updateProduct(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto): Promise<Product> {
-    return this.productService.updateProduct(id, updateProductDto);
+  async updateProduct(
+    @Param('id') id: string,
+    @Body() updateProductDto: UpdateProductDto,
+    @Req() req, // Inject the Request object
+  ): Promise<Product> {
+    return this.productService.updateProduct(id, updateProductDto, req.user._id.toString()); // Pass userId
   }
 
   /**
    * ❌ Delete a product
    */
   @Delete(':id')
-  async deleteProduct(@Param('id') id: string): Promise<{ deleted: boolean }> {
-    return this.productService.deleteProduct(id);
+  async deleteProduct(@Param('id') id: string, @Req() req): Promise<{ deleted: boolean }> { // Inject the Request object
+    return this.productService.deleteProduct(id, req.user._id.toString()); // Pass userId
   }
 
   /**
@@ -64,25 +69,30 @@ export class ProductController {
     @Param('id') id: string,
     @Body('stock') additionalStock: number,
   ): Promise<Product> {
-    return this.productService.supplyProduct(id, additionalStock);
+    return this.productService.supplyProduct(id, additionalStock); // Supply doesn't seem to be owner-specific
   }
 
   /**
    * 📷 Scan & Add a new product
    */
   @Post('scan-and-add')
-  async createScannedProduct(@Body() dto: CreateProductDto, @Req() req) {
-    return this.productService.addProduct(dto, req.user._id);
+  async createScannedProduct(
+    @Body() dto: CreateProductDto, // Expecting storeId in the DTO
+    @Req() req,
+  ) {
+    return this.productService.addProduct(dto, req.user._id.toString());
   }
 
   @Get()
   async getAllProducts(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
-    @Req() req, // To access user ID
+    @Query() paginationQuery: PaginationQueryDto,
+    @Req() req,
   ) {
-    return this.productService.findAll(req.user._id, page, limit);
+    const { page, limit } = paginationQuery;
+    //const storeId = req.user.storeId; // or wherever you're storing the storeId
+    return this.productService.findAll(req.user._id.toString(), page, limit);
   }
+
 
   @Get('expiring')
   async getExpiringProducts(
@@ -106,12 +116,12 @@ export class ProductController {
   }
 
   /**
-   * ➕ Add a new product (Manual entry, optional scanning)
+   * ➕ Add a new product (Manual entry, optional scanning) - Consider renaming for clarity
    */
   @Post('manual-add')
   @UseGuards(JwtAuthGuard)
   async createManualProduct(@Body() createProductDto: CreateProductDto, @Req() req): Promise<Product> {
-    return this.productService.addProduct(createProductDto, req.user._id);
+    return this.productService.addProduct(createProductDto, req.user._id.toString());
   }
 
 
@@ -129,7 +139,6 @@ export class ProductController {
    */
   @Get(':id')
   async getProduct(@Param('id') id: string): Promise<Product> {
-    return this.productService.findOne(id);
+    return this.productService.findOne(id); // Consider adding owner check here if needed
   }
-
 }

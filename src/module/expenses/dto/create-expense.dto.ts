@@ -19,5 +19,9 @@ export class CreateExpenseDto {
 
   @IsString()
   @IsOptional()
-  currency?: string; 
+  currency?: string;
+
+  @IsString()
+  @IsOptional()
+  paymentMethod?: string
 }

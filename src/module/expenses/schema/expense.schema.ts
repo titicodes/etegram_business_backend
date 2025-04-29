@@ -26,6 +26,9 @@ export class Expense {
 
     @Prop()
     currency?: string;
+
+    @Prop()
+    paymentMethod?:string
 }
 
 export const ExpenseSchema = SchemaFactory.createForClass(Expense);

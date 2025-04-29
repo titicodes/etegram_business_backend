@@ -63,5 +63,8 @@ export class Product {
 
   @Prop() // Add brand field
   brands: string;
+
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Store', required: true })
+  store: Types.ObjectId; // Add store reference
 }
 export const ProductSchema = SchemaFactory.createForClass(Product);

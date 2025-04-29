@@ -70,8 +70,8 @@ export class CreateProductDto {
   @IsString()
   brands?: string; 
 
-  @IsOptional() // Make it required
+  @IsNotEmpty()
   @IsString()
-  owner: string; 
+  store: string;
   
 }
