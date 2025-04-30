@@ -14,6 +14,7 @@ import { UserRepository } from './user.repository';
 import { pinDto, changePinDto } from './dto/change-pin.dto';
 import { JwtService } from '@nestjs/jwt';
 import { ObjectId } from 'mongodb';
+import { Store, StoreDocument } from '../store/schema/store.schema';
 
 
 @Injectable()
@@ -21,6 +22,7 @@ export class UserService extends CoreService<UserRepository> {
   constructor(
     private readonly repository: UserRepository,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Store.name) private storeModel: Model<StoreDocument>,
     private readonly jwtService: JwtService,
   ) {
     super(repository);

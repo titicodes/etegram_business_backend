@@ -45,14 +45,6 @@ export class CreateUserDto {
   @IsString()
   businessName : string;
 
-  // @ApiProperty({
-  //   enum: UserRoleEnum,
-  //   description: 'The role of the user in the system',
-  //   required: false,
-  // })
-  // @IsEnum(UserRoleEnum, { message: 'Role must be either ADMIN or USER' })
-  // @IsOptional()
-  // role?: UserRoleEnum;
 
   metadata?: { userId: string };
 

@@ -1,4 +1,3 @@
-
 import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import mongoose, { isValidObjectId, Model, Types } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
@@ -8,21 +7,20 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ProductCategoriesService } from '../product-category/product-category.service';
 import { ProductCategory } from '../product-category/schema/product-category.schema';
-import { StoreDocument } from '../store/schema/store.schema';
+import { Store, StoreDocument } from '../store/schema/store.schema';
 
 @Injectable()
 export class ProductService {
   constructor(
     @InjectModel(Product.name)
     private readonly productModel: Model<ProductDocument>,
-    private readonly storeModel: Model<StoreDocument>,
+    @InjectModel(Store.name) private readonly storeModel: Model<StoreDocument>,
     private readonly categoryService: ProductCategoriesService,
   ) { }
 
   /**
    * 🔍 Search for products by name, category, or keyword
    */
-
   async getFilteredProducts(filterProductDTO: FilterProductDTO, page: number = 1, limit: number = 10): Promise<any> {
     const { category, search } = filterProductDTO;
     const query: any = {};
@@ -90,9 +88,8 @@ export class ProductService {
   }
 
   /**
-    * ➕ Add a new product (Scanning required for new products)
-    */
-
+   * ➕ Add a new product (Scanning required for new products)
+   */
   async addProduct(createProductDTO: CreateProductDto, ownerId: string): Promise<Product> {
     const { code, store: storeId, category, brands, ...rest } = createProductDTO;
 
@@ -120,6 +117,7 @@ export class ProductService {
       brands: brands,
       owner: ownerId,
       store: storeId, // Set the store ID
+      code: code,
     });
 
     return newProduct.save();
@@ -127,9 +125,6 @@ export class ProductService {
   /**
    * ✏️ Update an existing product
    */
-  /**
-    * ✏️ Update an existing product
-    */
   async updateProduct(id: string, updateProductDTO: UpdateProductDto, userId: string): Promise<Product> {
     const existingProduct = await this.productModel.findOne({ _id: id, owner: userId });
     if (!existingProduct) throw new NotFoundException('Product not found or you do not have permission to update it');
@@ -166,9 +161,6 @@ export class ProductService {
    * - If product exists, update stock & optional details
    * - If product does NOT exist, requires scanning & adding
    */
-
-  // supplier.service.ts
-
   async supplyProduct(id: string, additionalStock: number): Promise<Product> {
     const existingProduct = await this.productModel.findById(id);
 
@@ -183,12 +175,19 @@ export class ProductService {
   /**
    * 📷 Scan & Add a new product if it does not exist in the search
    */
-
   async scanAndAddProduct(createProductDto: CreateProductDto, ownerId: string): Promise<Product> {
     return this.addProduct(createProductDto, ownerId);
   }
 
-  // In product.service.ts
+  // 👇 ADD THIS FUNCTION 👇
+  async findProductByCodeAndOwnerAndStore(
+    code: string,
+    ownerId: string,
+    storeId: string,
+  ): Promise<ProductDocument | null> {
+    return this.productModel.findOne({ code, owner: ownerId, store: storeId }).exec();
+  }
+
   async findAll(userId: string, page: number, limit: number) {
     const skip = (page - 1) * limit;
     const query = { owner: userId }; // Removed store
@@ -295,8 +294,8 @@ export class ProductService {
 
 
   /**
- * 📦 Get full product details by barcode for checkout scanning
- */
+   * 📦 Get full product details by barcode for checkout scanning
+   */
   async getProductByBarcode(code: string): Promise<Product> {
     const product = await this.productModel.findOne({ code }).populate('categoryId').populate('unitId').exec();
 
@@ -312,8 +311,8 @@ export class ProductService {
   }
 
   /**
-     * 📊 Get a summary of the inventory: total cost, total selling price, and total stock.
-     */
+   * 📊 Get a summary of the inventory: total cost, total selling price, and total stock.
+   */
   async getInventorySummary(): Promise<{
     totalCost: number;
     totalSellingPrice: number;
@@ -337,8 +336,4 @@ export class ProductService {
       totalStock,
     };
   }
-
 }
-
-
-

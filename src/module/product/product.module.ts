@@ -10,13 +10,17 @@ import {
   ProductCategorySchema,
 } from '../product-category/schema/product-category.schema';
 import { ProductCategoryModule } from '../product-category/product-category.module';
+import { Store, StoreSchema } from '../store/schema/store.schema';
+import { StoreModule } from '../store/store.module';
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: 'Product', schema: ProductSchema },
       { name: 'ProductCategory', schema: ProductCategorySchema },
+      { name:'Store', schema: StoreSchema }
     ]),
     ProductCategoryModule,
+    StoreModule
   ],
   controllers: [ProductController],
   providers: [
@@ -25,4 +29,4 @@ import { ProductCategoryModule } from '../product-category/product-category.modu
     ProductCategoriesService,
   ],
 })
-export class ProductModule {}
+export class ProductModule { }

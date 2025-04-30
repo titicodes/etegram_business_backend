@@ -67,4 +67,7 @@ export class Product {
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Store', required: true })
   store: Types.ObjectId; // Add store reference
 }
-export const ProductSchema = SchemaFactory.createForClass(Product);
+export const ProductSchema = SchemaFactory.createForClass(Product).index(
+  { code: 1, owner: 1, store: 1 },
+  { unique: true },
+);

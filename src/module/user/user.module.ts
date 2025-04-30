@@ -7,6 +7,7 @@ import { UserFactory } from './user-factory';
 import { UserController } from './user.controller';
 import { UserRepository } from './user.repository';
 import { UserService } from './user.service';
+import { Store, StoreSchema } from '../store/schema/store.schema';
 
 
 @Module({
@@ -14,6 +15,7 @@ import { UserService } from './user.service';
      
       MongooseModule.forFeature([
         { name: User.name, schema: UserSchema },
+        { name: Store.name, schema: StoreSchema },
        
       ]),
       InterestModule,

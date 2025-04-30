@@ -11,6 +11,7 @@ import {
   Patch,
   Req,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -19,6 +20,7 @@ import { FilterProductDTO } from './dto/filter-product.dto';
 import { Product } from './schema/product.schema';
 import { JwtAuthGuard } from '../auth/guard/jwtGuard';
 import { PaginationQueryDto } from './dto/pagination-querry.dto';
+import { Types } from 'mongoose';
 
 @Controller('products')
 @UseGuards(JwtAuthGuard)
@@ -76,11 +78,13 @@ export class ProductController {
    * 📷 Scan & Add a new product
    */
   @Post('scan-and-add')
+  @UseGuards(JwtAuthGuard) // Make sure you have your authentication guard in place
   async createScannedProduct(
     @Body() dto: CreateProductDto, // Expecting storeId in the DTO
     @Req() req,
   ) {
-    return this.productService.addProduct(dto, req.user._id.toString());
+    const userId = req.user['_id'].toString();
+    return this.productService.addProduct(dto, userId); // Pass the DTO and the userId
   }
 
   @Get()
@@ -132,6 +136,23 @@ export class ProductController {
     totalStock: number;
   }> {
     return this.productService.getInventorySummary();
+  }
+
+  @Get('check-code')
+  async checkProductCode(
+    @Query('code') code: string,
+    @Query('ownerId') ownerId: string,
+    @Query('storeId') storeId: string,
+  ): Promise<{ exists: boolean }> {
+    if (!Types.ObjectId.isValid(ownerId) || !Types.ObjectId.isValid(storeId)) {
+      throw new BadRequestException('Invalid ownerId or storeId format');
+    }
+    const product = await this.productService.findProductByCodeAndOwnerAndStore(
+      code,
+      ownerId,
+      storeId,
+    );
+    return { exists: !!product };
   }
 
   /**
