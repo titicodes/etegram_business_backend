@@ -9,8 +9,11 @@ import { ENVIRONMENT } from './common/config/environment';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
-    cors: true,
+  const app = await NestFactory.create(AppModule)
+  app.enableCors({
+    origin: ['http://localhost:3000', ],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
   });
 
   app.use(helmet());
