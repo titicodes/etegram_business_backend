@@ -9,36 +9,39 @@ import { ENVIRONMENT } from './common/config/environment';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule)
+  const app = await NestFactory.create(AppModule);
+
+  // CORS setup
   app.enableCors({
-    origin: ['http://localhost:3000', ],
+    origin: ['http://localhost:3000'],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
 
+  // Helmet for security
   app.use(helmet());
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   /**
-   * interceptors
+   * Interceptors
    */
   app.useGlobalInterceptors(
     new ResponseTransformerInterceptor(app.get(Reflector)),
   );
 
   /**
-   * Set global exception filter
+   * Global exception filter
    */
   app.useGlobalFilters(new HttpExceptionFilter());
 
   /**
-   * Set global prefix for routes
+   * Set global prefix for API routes
    */
   app.setGlobalPrefix('/api');
 
   /**
-   *  Set global pipes
+   * Global pipes for validation
    */
   app.useGlobalPipes(
     new ValidationPipe({
@@ -50,8 +53,8 @@ async function bootstrap() {
 
   // Swagger setup
   const config = new DocumentBuilder()
-    .setTitle('Etegram Businuess')
-    .setDescription('Etegram Business')
+    .setTitle('Etegram Business')
+    .setDescription('Etegram Business API Documentation')
     .setVersion('1.0')
     .addTag('Etegram Business API')
     .addBearerAuth(
@@ -59,7 +62,7 @@ async function bootstrap() {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
-        name: 'JWT',
+        name: 'Authorization',
         description: 'Enter JWT token',
         in: 'header',
       },
@@ -73,16 +76,13 @@ async function bootstrap() {
       tagsSorter: 'alpha',
       operationsSorter: 'alpha',
       persistAuthorization: true,
-      customSiteTitle: `ETEGRAM BUS API Docs`,
+      customSiteTitle: 'ETEGRAM BUS API Docs',
     },
   });
 
-
-  //   await app.listen(8000)
-  //  console.log(`App runing on port 8000`)
+  // Start the server
   await app.listen(process.env.PORT || 3000, '0.0.0.0');
   console.log(`Server running on: http://0.0.0.0:${ENVIRONMENT.APP.PORT}`);
   console.log('JWT Secret (Application Startup):', process.env.JWT_SECRET);
-
 }
 bootstrap();
