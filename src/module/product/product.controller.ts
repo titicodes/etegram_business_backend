@@ -12,6 +12,8 @@ import {
   Req,
   UseGuards,
   BadRequestException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -143,16 +145,20 @@ export class ProductController {
     @Query('code') code: string,
     @Query('ownerId') ownerId: string,
     @Query('storeId') storeId: string,
-  ): Promise<{ exists: boolean }> {
-    if (!Types.ObjectId.isValid(ownerId) || !Types.ObjectId.isValid(storeId)) {
-      throw new BadRequestException('Invalid ownerId or storeId format');
+  ) {
+    try {
+      if (!code || !ownerId || !storeId) {
+        throw new HttpException('Missing required query parameters', HttpStatus.BAD_REQUEST);
+      }
+      const existsResult = await this.productService.checkProductExistenceByCode(code, ownerId, storeId);
+      return { success: true, data: existsResult, message: 'Request completed successfully' };
+    } catch (error) {
+      console.error('Error checking product code:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Internal server error', HttpStatus.INTERNAL_SERVER_ERROR);
     }
-    const product = await this.productService.findProductByCodeAndOwnerAndStore(
-      code,
-      ownerId,
-      storeId,
-    );
-    return { exists: !!product };
   }
 
   /**

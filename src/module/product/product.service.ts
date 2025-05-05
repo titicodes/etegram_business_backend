@@ -36,7 +36,7 @@ export class ProductService {
     if (category && mongoose.Types.ObjectId.isValid(category)) {
       query.categoryId = new mongoose.Types.ObjectId(category);
     } else if (category) {
-      throw new Error('Invalid category ID format');
+      throw new BadRequestException('Invalid category ID format');
     }
 
     const skip = (page - 1) * limit;
@@ -120,6 +120,7 @@ export class ProductService {
       code: code,
     });
 
+    console.log(`Adding product: Code=<span class="math-inline">\{code\}, Owner\=</span>{ownerId}, Store=${storeId}`); // Add this line
     return newProduct.save();
   }
   /**
@@ -308,6 +309,22 @@ export class ProductService {
     }
 
     return product;
+  }
+
+  /**
+   * ✅ Check if a product code already exists for a specific owner and store
+   */
+  async checkProductCodeExists(code: string, ownerId: string, storeId: string): Promise<boolean> {
+    const existingProduct = await this.productModel.findOne({ code, owner: ownerId, store: storeId }).exec();
+    return !!existingProduct;
+  }
+
+  /**
+    * ❓ Check if a product exists by code, owner, and store
+    */
+  async checkProductExistenceByCode(code: string, ownerId: string, storeId: string): Promise<{ exists: boolean }> {
+    const existsResult = await this.productModel.exists({ code, owner: ownerId, store: storeId });
+    return { exists: !!existsResult }; // Explicitly convert the result to a boolean
   }
 
   /**

@@ -30,9 +30,10 @@ export class CheckoutController {
    */
   @Get('scan/:code')
   async scanProduct(
-    @Param('code') code: string, // Required
-    @Request() req, // Required
-    @Query('cart') cartString?: string, // Optional (now at the end)
+    @Param('code') code: string,
+    @Request() req,
+    @Query('cart') cartString?: string,
+    @Query('storeId') storeId?: string, // Added storeId as a query parameter
   ): Promise<{ product: Product; cart: { code: string; quantity: number }[] }> {
     const user = req.user;
     let cart: { code: string; quantity: number }[] = [];
@@ -45,7 +46,13 @@ export class CheckoutController {
       }
     }
 
-    return this.checkoutService.scanProduct(code, cart, user.id);
+    // Validate storeId is provided
+    if (!storeId) {
+      throw new BadRequestException('Store ID is required to scan products.');
+    }
+
+    // Pass storeId to service method
+    return this.checkoutService.scanProduct(code, cart, user.id, storeId);
   }
 
   /**
@@ -68,9 +75,13 @@ export class CheckoutController {
       throw new BadRequestException('Cart cannot be empty.');
     }
 
+    // Validate storeId is provided in the DTO
+    if (!createCheckoutDto.storeId) {
+      throw new BadRequestException('Store ID is required for checkout.');
+    }
+
     return this.checkoutService.createCheckout(createCheckoutDto, user);
   }
-
 
   /**
    * @desc Update order status (Processing/Completed)

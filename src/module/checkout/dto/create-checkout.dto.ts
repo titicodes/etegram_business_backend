@@ -1,4 +1,5 @@
-import { IsNotEmpty, IsArray, IsNumber, IsOptional, IsEnum, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsNotEmpty, IsArray, IsNumber, IsOptional, IsEnum, IsString, ValidateNested } from 'class-validator';
 
 export class ScanProductDto {
   @IsNotEmpty()
@@ -12,13 +13,14 @@ export class ScanProductDto {
 
 export class CreateCheckoutDto {
   @IsArray()
-  @IsNotEmpty()
-  cart: { code: string; quantity: number }[];
+  @ValidateNested({ each: true })
+  @Type(() => CartItemDto)
+  cart: CartItemDto[];
 
   @IsString()
   @IsNotEmpty()
-  paymentMethod: string; 
-  
+  paymentMethod: string;
+
   @IsOptional()
   @IsNumber()
   discount?: number;
@@ -26,6 +28,9 @@ export class CreateCheckoutDto {
   @IsOptional()
   @IsNumber()
   tax?: number;
+
+  @IsString()
+  storeId: string;
 }
 
 
@@ -33,4 +38,13 @@ export class UpdateOrderStatusDto {
   @IsNotEmpty()
   @IsEnum(['Processing', 'Completed'])
   status: 'Processing' | 'Completed';
+}
+
+
+class CartItemDto {
+  @IsString()
+  code: string;
+
+  @IsNumber()
+  quantity: number;
 }

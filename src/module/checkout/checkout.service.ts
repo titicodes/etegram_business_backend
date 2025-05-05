@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { ClientSession, Model, Types } from 'mongoose'; // Import Types
+import { ClientSession, Model, Types } from 'mongoose';
 import { CreateCheckoutDto } from './dto/create-checkout.dto';
 import { Product, ProductDocument } from '../product/schema/product.schema';
 import { User } from '../user/schema/user.schema';
@@ -9,7 +9,7 @@ import { NotificationService } from '../notification/notification.service';
 import { InvoiceService } from '../invoice/invoice.service';
 import { EmailService } from '../email/email.service';
 import { FirebaseService } from 'src/firebase/firebase.service';
-import { UserService } from '../user/user.service'; // Import UserService
+import { UserService } from '../user/user.service';
 
 @Injectable()
 export class CheckoutService {
@@ -21,12 +21,14 @@ export class CheckoutService {
         private readonly invoiceService: InvoiceService,
         private readonly emailService: EmailService,
         private readonly firebaseService: FirebaseService,
-        private readonly userService: UserService, // Inject UserService
+        private readonly userService: UserService,
     ) { }
 
-    async scanProduct(code: string, cart: { code: string; quantity: number }[], ownerId: string): Promise<{ product: Product; cart: { code: string; quantity: number }[] }> {
-        const product = await this.productModel.findOne({ code, owner: ownerId }).exec();
+    async scanProduct(code: string, cart: { code: string; quantity: number }[], ownerId: string, storeId: string): Promise<{ product: Product; cart: { code: string; quantity: number }[] }> {
+        console.log(`Scanning for checkout: Code=<span class="math-inline">\{code\}, Owner\=</span>{ownerId}, Store=${storeId}`); // Add this line
+        const product = await this.productModel.findOne({ code, owner: ownerId, store: storeId }).exec();
         if (!product) throw new NotFoundException(`Product with barcode ${code} not found in your store`);
+
 
         if (product.stock < 1) {
             throw new BadRequestException(`Product ${product.name} is out of stock`);
@@ -45,13 +47,18 @@ export class CheckoutService {
     }
 
     async createCheckout(createCheckoutDto: CreateCheckoutDto, user: User): Promise<Checkout> {
-        const { cart, discount = 0, tax = 0, paymentMethod } = createCheckoutDto;
+        const { cart, discount = 0, tax = 0, paymentMethod, storeId } = createCheckoutDto;
 
         if (!cart || cart.length === 0) {
             throw new BadRequestException('Cart cannot be empty.');
         }
 
-        const cartItems = await this.validateAndFetchProducts(cart, user._id.toString()); // Convert ObjectId to string
+        if (!storeId) {
+            throw new BadRequestException('Store ID is required for checkout.');
+        }
+
+        // Pass storeId to validateAndFetchProducts
+        const cartItems = await this.validateAndFetchProducts(cart, user._id.toString(), storeId);
         const totalPrice = cartItems.reduce((acc, item) => acc + item.subtotal, 0);
         const discountedPrice = totalPrice - (totalPrice * discount) / 100;
         const totalPriceWithTax = discountedPrice + (discountedPrice * tax) / 100;
@@ -65,10 +72,16 @@ export class CheckoutService {
                 // Update stock in MongoDB within transaction
                 for (const { code, quantity } of cartItems) {
                     this.logger.log(`Updating stock for product ${code}, quantity: ${quantity}`);
-                    const product = await this.updateProductStockWithRetry(this.productModel, code, quantity, session, user._id.toString()); // Convert ObjectId to string
+                    // Pass storeId to updateProductStockWithRetry
+                    const product = await this.updateProductStockWithRetry(
+                        this.productModel,
+                        code,
+                        quantity,
+                        session,
+                        user._id.toString(),
+                        storeId
+                    );
                     if (!product) throw new BadRequestException(`Insufficient stock for product with code: ${code}`);
-
-                    // Firebase is outside the transaction, do it after commit
                 }
 
                 // Save checkout
@@ -81,6 +94,7 @@ export class CheckoutService {
                     status: 'Completed',
                     createdAt: new Date(),
                     paymentMethod,
+                    store: storeId, // Save the storeId in the checkout
                 }], { session });
 
                 this.logger.log('Checkout created successfully.');
@@ -93,7 +107,12 @@ export class CheckoutService {
 
             // 🔁 Post-transaction: Firebase updates, Email, Notification, Push
             for (const { code } of cartItems) {
-                const product = await this.productModel.findOne({ code, owner: user._id }); // Keep as ObjectId for database query
+                // Include storeId in the Firebase update query
+                const product = await this.productModel.findOne({
+                    code,
+                    owner: user._id,
+                    store: storeId
+                });
                 if (product) await this.firebaseService.updateProductStock(product);
             }
 
@@ -132,11 +151,11 @@ export class CheckoutService {
         }
     }
 
-
-    private async validateAndFetchProducts(products: { code: string; quantity: number }[], ownerId: string) {
+    private async validateAndFetchProducts(products: { code: string; quantity: number }[], ownerId: string, storeId: string) {
         return await Promise.all(
             products.map(async ({ code, quantity }) => {
-                const product = await this.productModel.findOne({ code, owner: ownerId }).exec();
+                // Updated to include storeId in the query
+                const product = await this.productModel.findOne({ code, owner: ownerId, store: storeId }).exec();
                 if (!product) throw new NotFoundException(`Product with code ${code} not found in your store`);
                 if (product.stock < quantity) throw new BadRequestException(`Insufficient stock for product with code: ${code}`);
 
@@ -162,20 +181,22 @@ export class CheckoutService {
         return order;
     }
 
-    //Retry Function
+    // Updated to include storeId parameter
     async updateProductStockWithRetry(
         productModel: Model<ProductDocument>,
         code: string,
         quantity: number,
         session: ClientSession,
-        ownerId: string, // Add ownerId here
+        ownerId: string,
+        storeId: string,
         maxRetries = 3
     ): Promise<ProductDocument | null> {
         let retries = 0;
 
         while (retries < maxRetries) {
             try {
-                const product = await productModel.findOne({ code, owner: ownerId }).session(session);
+                // Updated to include storeId in the query
+                const product = await productModel.findOne({ code, owner: ownerId, store: storeId }).session(session);
                 if (!product) {
                     throw new BadRequestException(`Product with code ${code} not found in your store`);
                 }
