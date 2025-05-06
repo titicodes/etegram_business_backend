@@ -112,8 +112,9 @@ export class User {
   @Prop({ type: String })
   twoFactorAuthenticationSecret?: string;
 
-  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Store' })
-  store: Store; // Changed from Store[] to Store
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null })
+  store: mongoose.Types.ObjectId;
+
 
   @Prop()
   fcmToken?: string;
