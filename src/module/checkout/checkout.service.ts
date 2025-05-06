@@ -56,7 +56,6 @@ export class CheckoutService {
         if (!storeId) {
             throw new BadRequestException('Store ID is required for checkout.');
         }
-
         // Pass storeId to validateAndFetchProducts
         const cartItems = await this.validateAndFetchProducts(cart, user._id.toString(), storeId);
         const totalPrice = cartItems.reduce((acc, item) => acc + item.subtotal, 0);

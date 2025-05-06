@@ -9,7 +9,7 @@ export class User {
   deviceToken: string;
 
   _id: Types.ObjectId;
-  
+
   @Prop({ required: true, unique: true })
   email: string;
 
@@ -112,11 +112,11 @@ export class User {
   @Prop({ type: String })
   twoFactorAuthenticationSecret?: string;
 
-  @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Store' }] })
-  stores: Store[];
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Store' })
+  store: Store; // Changed from Store[] to Store
 
   @Prop()
-  fcmToken?: string; 
+  fcmToken?: string;
 }
 export type UserDocument = User & Document;
 export const UserSchema = SchemaFactory.createForClass(User);
