@@ -91,19 +91,18 @@ export class ProductService {
    * ➕ Add a new product (Scanning required for new products)
    */
   async addProduct(createProductDTO: CreateProductDto, ownerId: string): Promise<Product> {
-    const { code, store: storeId, category, brands, ...rest } = createProductDTO;
+    const { code, store: storeIdString, category, brands, ...rest } = createProductDTO;
 
     // Verify if the store belongs to the owner (optional, but recommended for security)
-    const storeExists = await this.storeModel.exists({ _id: storeId, owner: ownerId });
+    const storeExists = await this.storeModel.exists({ _id: storeIdString, owner: ownerId });
     if (!storeExists) {
       throw new BadRequestException('Store not found or does not belong to the user.');
     }
 
-    const existingProduct = await this.productModel.findOne({ code, owner: ownerId, store: storeId }).exec();
+    const existingProduct = await this.productModel.findOne({ code, owner: ownerId, store: storeIdString }).exec();
     if (existingProduct) throw new ConflictException('Product code already exists in this store');
 
-    let categoryEntity: ProductCategory;
-
+    let categoryEntity: any; // Use 'any' to avoid strict type checking here
     if (category) {
       categoryEntity = await this.categoryService.findOrCreate(category);
     } else {
@@ -112,17 +111,18 @@ export class ProductService {
 
     const newProduct = new this.productModel({
       ...rest,
-      categoryId: categoryEntity._id,
+      categoryId: categoryEntity?._id,
       category: category,
       brands: brands,
       owner: ownerId,
-      store: storeId, // Set the store ID
+      store: new Types.ObjectId(storeIdString), // Convert storeId to ObjectId
       code: code,
     });
 
-    console.log(`Adding product: Code=<span class="math-inline">\{code\}, Owner\=</span>{ownerId}, Store=${storeId}`); // Add this line
+    console.log(`Adding product: Code=${code}, Owner=${ownerId}, Store=${storeIdString}`);
     return newProduct.save();
   }
+
   /**
    * ✏️ Update an existing product
    */
