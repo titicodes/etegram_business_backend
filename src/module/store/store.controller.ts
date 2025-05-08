@@ -11,6 +11,7 @@ export class StoreController {
   constructor(private readonly storeService: StoreService) { }
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   async createStore(@Body() dto: CreateStoreDto, @Req() req: any) {
     const userId = req.user?._id;
     if (!userId) throw new BadRequestException('User not authenticated');

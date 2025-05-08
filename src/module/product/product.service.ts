@@ -99,7 +99,11 @@ export class ProductService {
       throw new BadRequestException('Store not found or does not belong to the user.');
     }
 
-    const existingProduct = await this.productModel.findOne({ code, owner: ownerId, store: storeIdString }).exec();
+    const existingProduct = await this.productModel.findOne({
+      code,
+      owner: ownerId,
+      store: new Types.ObjectId(storeIdString) //  Include store in the query!
+    }).exec();
     if (existingProduct) throw new ConflictException('Product code already exists in this store');
 
     let categoryEntity: any; // Use 'any' to avoid strict type checking here
@@ -115,13 +119,14 @@ export class ProductService {
       category: category,
       brands: brands,
       owner: ownerId,
-      store: new Types.ObjectId(storeIdString), // Convert storeId to ObjectId
+      store: new Types.ObjectId(storeIdString),
       code: code,
     });
 
     console.log(`Adding product: Code=${code}, Owner=${ownerId}, Store=${storeIdString}`);
     return newProduct.save();
   }
+
 
   /**
    * ✏️ Update an existing product

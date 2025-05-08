@@ -25,10 +25,41 @@ export class CheckoutService {
     ) { }
 
     async scanProduct(code: string, cart: { code: string; quantity: number }[], ownerId: string, storeId: string): Promise<{ product: Product; cart: { code: string; quantity: number }[] }> {
-        console.log(`Scanning for checkout: Code=<span class="math-inline">\{code\}, Owner\=</span>{ownerId}, Store=${storeId}`); // Add this line
-        const product = await this.productModel.findOne({ code, owner: ownerId, store: storeId }).exec();
-        if (!product) throw new NotFoundException(`Product with barcode ${code} not found in your store`);
+        this.logger.log(`Scanning for checkout: Code=${code}, Owner=${ownerId}, Store=${storeId}`);
 
+        // Convert storeId to ObjectId if it's not already
+        const storeObjectId = typeof storeId === 'string' ? new Types.ObjectId(storeId) : storeId;
+
+        // First try exact match
+        let product = await this.productModel.findOne({
+            code,
+            owner: ownerId,
+            store: storeObjectId
+        }).exec();
+
+        // If not found, try with flexible matching for the barcode
+        if (!product) {
+            this.logger.log(`Product not found with exact code. Trying case-insensitive search...`);
+            product = await this.productModel.findOne({
+                code: { $regex: new RegExp('^' + code + '$', 'i') },
+                owner: ownerId,
+                store: storeObjectId
+            }).exec();
+        }
+
+        if (!product) {
+            this.logger.log(`Product still not found. Checking if the product exists without store filter...`);
+            const productAnyStore = await this.productModel.findOne({
+                code,
+                owner: ownerId
+            }).exec();
+
+            if (productAnyStore) {
+                throw new BadRequestException(`Product with barcode ${code} exists but is not associated with the specified store (ID: ${storeId})`);
+            } else {
+                throw new NotFoundException(`Product with barcode ${code} not found in your store`);
+            }
+        }
 
         if (product.stock < 1) {
             throw new BadRequestException(`Product ${product.name} is out of stock`);
@@ -45,6 +76,8 @@ export class CheckoutService {
 
         return { product, cart };
     }
+
+    // Rest of the code remains the same...
 
     async createCheckout(createCheckoutDto: CreateCheckoutDto, user: User): Promise<Checkout> {
         const { cart, discount = 0, tax = 0, paymentMethod, storeId } = createCheckoutDto;
@@ -151,10 +184,17 @@ export class CheckoutService {
     }
 
     private async validateAndFetchProducts(products: { code: string; quantity: number }[], ownerId: string, storeId: string) {
+        const storeObjectId = typeof storeId === 'string' ? new Types.ObjectId(storeId) : storeId;
+
         return await Promise.all(
             products.map(async ({ code, quantity }) => {
                 // Updated to include storeId in the query
-                const product = await this.productModel.findOne({ code, owner: ownerId, store: storeId }).exec();
+                const product = await this.productModel.findOne({
+                    code,
+                    owner: ownerId,
+                    store: storeObjectId
+                }).exec();
+
                 if (!product) throw new NotFoundException(`Product with code ${code} not found in your store`);
                 if (product.stock < quantity) throw new BadRequestException(`Insufficient stock for product with code: ${code}`);
 
@@ -191,11 +231,17 @@ export class CheckoutService {
         maxRetries = 3
     ): Promise<ProductDocument | null> {
         let retries = 0;
+        const storeObjectId = typeof storeId === 'string' ? new Types.ObjectId(storeId) : storeId;
 
         while (retries < maxRetries) {
             try {
                 // Updated to include storeId in the query
-                const product = await productModel.findOne({ code, owner: ownerId, store: storeId }).session(session);
+                const product = await productModel.findOne({
+                    code,
+                    owner: ownerId,
+                    store: storeObjectId
+                }).session(session);
+
                 if (!product) {
                     throw new BadRequestException(`Product with code ${code} not found in your store`);
                 }
@@ -238,4 +284,6 @@ export class CheckoutService {
             error.code === 251 // NoSuchTransaction code
         );
     }
+
+   
 }

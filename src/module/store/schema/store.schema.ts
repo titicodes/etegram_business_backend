@@ -29,6 +29,11 @@ export class Store {
 
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true })
   owner: User;
+
+  
+  @Prop({ required: false })
+  area?: string;
+  
 }
 
 export const StoreSchema = SchemaFactory.createForClass(Store);

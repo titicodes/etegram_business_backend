@@ -5,34 +5,34 @@ import { JwtAuthGuard } from '../auth/guard/jwtGuard';
 
 @Controller('deliveries')
 export class DeliveriesController {
-    constructor(private readonly expenseService: DeliveriesService) { }
+    constructor(private readonly deliveryService: DeliveriesService) { }
 
     @Post()
     @UseGuards(JwtAuthGuard)
-    async createExpense(@Body() createExpenseDto: DeliveryDto, @Req() req) {
+    async createDeliveries(@Body() createSupplyDto: DeliveryDto, @Req() req) {
         const user = req.user; // Ensure user is available from JWT token
-        return this.expenseService.createDeliveries(createExpenseDto, user);
+        return this.deliveryService.createDeliveries(createSupplyDto, user);
     }
 
     @Get()
-    async findAllExpenses(@Req() req) {
-        return this.expenseService.findAllDeliveries(req.user);
+    async findAllDeliveries(@Req() req) {
+        return this.deliveryService.findAllDeliveries(req.user);
     }
 
     @Get(':id')
     @UseGuards(JwtAuthGuard)
-    async findExpenseById(@Param('id') id: string, @Req() req) {
-        return this.expenseService.findExpenseById(id, req.user);
+    async findDeliveriesById(@Param('id') id: string, @Req() req) {
+        return this.deliveryService.findExpenseById(id, req.user);
     }
 
     @Put(':id')
     @UseGuards(JwtAuthGuard)
-    async updateExpense(@Param('id') id: string, @Body() updateExpenseDto: DeliveryDto, @Req() req) {
-        return this.expenseService.updateExpense(id, updateExpenseDto, req.user);
+    async updateDeliveries(@Param('id') id: string, @Body() updateExpenseDto: DeliveryDto, @Req() req) {
+        return this.deliveryService.updateExpense(id, updateExpenseDto, req.user);
     }
 
     @Delete(':id')
-    async deleteExpense(@Param('id') id: string, @Req() req) {
-        return this.expenseService.deleteDelivery(id, req.user);
+    async deleteDelivery(@Param('id') id: string, @Req() req) {
+        return this.deliveryService.deleteDelivery(id, req.user);
     }
 }
