@@ -1,15 +1,15 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import mongoose, { Document, Types } from 'mongoose';
 
-@Schema({timestamps:true})
-export class Customer{
+@Schema({ timestamps: true })
+export class Customer {
     @Prop()
-    firstName:string
+    firstName: string
 
     @Prop()
-    lastName:string
+    lastName: string
 
-    @Prop({required:true, unique:true})
+    @Prop({ required: true, unique: true })
     email: string;
 
     @Prop()
@@ -18,7 +18,13 @@ export class Customer{
     @Prop()
     phoneNumber?: string;
 
-    @Prop({default:true, unique:false})
+    @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+    user: Types.ObjectId;
+
+    @Prop({ type: Types.ObjectId, ref: 'Store', required: true })
+    store: Types.ObjectId;
+
+    @Prop({ default: true, unique: false })
     address?: string;
 
     @Prop()
@@ -44,6 +50,12 @@ export class Customer{
 
     @Prop()
     extraDetails: string;
+
+    @Prop({ default: Date.now })
+    createdAt: Date;
+
+    @Prop({ default: Date.now })
+    updatedAt: Date;
 
 }
 

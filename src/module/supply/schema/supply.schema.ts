@@ -46,6 +46,12 @@ export class Supply {
 
     @Prop({ default: Date.now })
     updatedAt: Date;
+
+    @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+    user: Types.ObjectId;
+
+    @Prop({ type: Types.ObjectId, ref: 'Store', required: true })
+    store: Types.ObjectId;
 }
 export type SupplyDocument = Supply & Document;
 export const SupplySchema = SchemaFactory.createForClass(Supply);

@@ -1,26 +1,47 @@
-// In your product.schema.ts
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import mongoose, { Document, Types } from 'mongoose';
 
-export type ProductDocument = Product & Document;
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document, Types } from 'mongoose';
 
 @Schema({ timestamps: true })
-export class Product {
-  @Prop()
+export class Product extends Document {
+  @Prop({ required: true })
   name: string;
 
   @Prop()
   description: string;
 
-  @Prop()
+  @Prop({ required: true, unique: false })
+  code: string;
+
+  @Prop({ required: true })
   price: number;
 
+  @Prop({ required: true, default: 0 })
+  stock: number;
+
+  @Prop({ type: Types.ObjectId, ref: 'ProductCategory' })
+  categoryId: Types.ObjectId;
 
   @Prop()
-  category: string; // Now storing the category name
+  category: string;
 
-  @Prop({ required: true, unique: true })
-  code: string;
+  @Prop([String])
+  brands: string[];
+
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  owner: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'Store', required: true })
+  store: Types.ObjectId;
+
+  @Prop()
+  expiryDate?: Date;
+
+  @Prop()
+  totalCost?: number;
+
+  @Prop()
+  unitPrice?: number;
 
   @Prop({ required: true })
   quantity: number;
@@ -28,17 +49,10 @@ export class Product {
   @Prop()
   image?: string;
 
-  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true })
-  owner: Types.ObjectId;
-
-  @Prop({ type: Types.ObjectId, ref: 'ProductCategory' }) // Reference to ProductCategory
-  categoryId: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'UnitOfMeasure', required: true })
   unitId: Types.ObjectId;
 
-  @Prop({ required: false, default: 0 })
-  stock: number;
 
   @Prop({ required: false })
   size: string;
@@ -46,28 +60,30 @@ export class Product {
   @Prop({ required: false })
   totalQuantity: number;
 
-  @Prop({ required: false })
-  totalCost: number;
-
-  @Prop({ required: false })
-  unitPrice: number;
 
   @Prop({ required: false })
   minQuantity: number;
 
-  @Prop({ required: false })
-  expiryDate: string;
 
   @Prop({ required: false })
   supplyTo?: string;
 
-  @Prop() // Add brand field
-  brands: string;
+  @Prop({ min: 0 })
+  costPrice?: number;
 
-  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Store', required: true })
-  store: Types.ObjectId; // Add store reference
+  @Prop({ type: Types.ObjectId, required: true })
+  createdBy: Types.ObjectId;
+
+  @Prop({ default: Date.now })
+  createdAt: Date;
+
+  @Prop({ default: Date.now })
+  updatedAt: Date;
+
 }
-export const ProductSchema = SchemaFactory.createForClass(Product).index(
-  { code: 1, owner: 1, store: 1 },
-  { unique: true },
-);
+
+export type ProductDocument = Product & Document;
+export const ProductSchema = SchemaFactory.createForClass(Product);
+
+// Ensure unique product code per store and owner
+ProductSchema.index({ code: 1, owner: 1, store: 1 }, { unique: true });

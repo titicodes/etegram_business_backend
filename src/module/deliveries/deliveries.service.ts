@@ -1,101 +1,234 @@
-import { ConflictException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
 import { Deliveries, DeliveriesDocument } from './schema/deliveries.schema';
-import { Model } from 'mongoose';
-import { DeliveryDto } from './dto/delivery.dto';
-import { User } from '../user/schema/user.schema';
+import { User, UserDocument } from '../user/schema/user.schema';
+import { Product, ProductDocument } from '../product/schema/product.schema';
+import { UserRoleEnum } from '../../common/enums/user.enum';
+import { UpdateDeliveryDto } from './dto/update-delivery.dto';
+import { CreateDeliveryDto } from './dto/delivery.dto';
 
 @Injectable()
 export class DeliveriesService {
     private readonly logger = new Logger(DeliveriesService.name);
-    constructor(@InjectModel(Deliveries.name) private readonly deliveriesModel: Model<DeliveriesDocument>
+
+    constructor(
+        @InjectModel(Deliveries.name) private readonly deliveriesModel: Model<DeliveriesDocument>,
+        @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
     ) { }
 
-    async createDeliveries(dto: DeliveryDto, user: User): Promise<{ succes: boolean; data: Deliveries; message: string }> {
+    async createDelivery(dto: CreateDeliveryDto, user: UserDocument): Promise<{ success: boolean; data: Deliveries; message: string }> {
+        this.logger.log(`Creating delivery for user=${user._id}, store=${dto.storeId}`);
+
+        if (!Types.ObjectId.isValid(dto.storeId)) {
+            throw new BadRequestException('Invalid store ID');
+        }
+
+        const store = await this.validateStoreAccess(dto.storeId, user._id.toString(), user.role);
+        if (!store) {
+            throw new BadRequestException('Store not found or you do not have permission');
+        }
+
+        const session = await this.deliveriesModel.db.startSession();
         try {
-            this.logger.log('Creating new deliveries...');
-            const existingDeliveries = await this.deliveriesModel.findOne({ email: dto.email });
-            if (existingDeliveries) {
-                throw new ConflictException("Customer with this email already exist");
-            }
-            const newDeliveries = new this.deliveriesModel({
-                ...dto,
-                 user: user._id, 
-                 extraDetails: dto.extraDetails || '',
-                  extraPhone: dto.extraPhone || ''
+            const result = await session.withTransaction(async () => {
+                const existingDelivery = await this.deliveriesModel
+                    .findOne({ orderId: dto.orderId, user: user._id, store: dto.storeId })
+                    .session(session)
+                    .exec();
+                if (existingDelivery) {
+                    throw new ConflictException(`Delivery for order ${dto.orderId} already exists in this store`);
+                }
+
+                for (const item of dto.items) {
+                    const product = await this.productModel
+                        .findOne({ code: item.productCode, createdBy: user._id, store: dto.storeId })
+                        .session(session)
+                        .exec();
+                    if (!product) {
+                        throw new NotFoundException(`Product with code ${item.productCode} not found in store ${dto.storeId}`);
+                    }
+                    product.quantity += item.quantity;
+                    await product.save({ session });
+                }
+
+                const [newDelivery] = await this.deliveriesModel.create(
+                    [
+                        {
+                            ...dto,
+                            user: user._id,
+                            store: dto.storeId,
+                            status: dto.status || 'PENDING',
+                            createdAt: new Date(),
+                        },
+                    ],
+                    { session },
+                );
+
+                return newDelivery;
             });
-            const savedDeliveries = newDeliveries.save();
-            const fullDeliveriessDetails = await this.deliveriesModel.findById((await savedDeliveries)._id).lean().exec();
+
+            const fullDelivery = await this.deliveriesModel.findById(result._id).lean().exec();
             return {
-                succes: true,
-                data: fullDeliveriessDetails,
-                message: "Deliveries created Successfully."
-            }
-
-        } catch (e) {
-            throw e;
+                success: true,
+                data: fullDelivery,
+                message: 'Delivery created successfully',
+            };
+        } catch (error) {
+            this.logger.error(`Failed to create delivery: ${error.message}`, error.stack);
+            throw error instanceof ConflictException || error instanceof NotFoundException
+                ? error
+                : new InternalServerErrorException('Failed to create delivery');
+        } finally {
+            session.endSession();
         }
     }
 
-    async findAllDeliveries(user: User): Promise<Deliveries[]> {
+    async findAllDeliveries(user: UserDocument, storeId?: string): Promise<Deliveries[]> {
+        this.logger.log(`Fetching deliveries for user=${user._id}, store=${storeId || 'all'}`);
+
+        const query: any = { user: user._id };
+        if (storeId) {
+            if (!Types.ObjectId.isValid(storeId)) {
+                throw new BadRequestException('Invalid store ID');
+            }
+            const store = await this.validateStoreAccess(storeId, user._id.toString(), user.role);
+            if (!store) {
+                throw new BadRequestException('Store not found or you do not have permission');
+            }
+            query.store = storeId;
+        }
+
         try {
-            this.logger.log('Fetching all expenses...');
-            const deliveries = await this.deliveriesModel.find({ user: user._id }).exec();
-            this.logger.log('Expenses fetched successfully.');
+            const deliveries = await this.deliveriesModel.find(query).exec();
+            this.logger.log(`Fetched ${deliveries.length} deliveries`);
             return deliveries;
         } catch (error) {
-            this.logger.error('Failed to fetch expenses:', error);
-            throw new InternalServerErrorException('Failed to fetch expenses.');
+            this.logger.error(`Failed to fetch deliveries: ${error.message}`, error.stack);
+            throw new InternalServerErrorException('Failed to fetch deliveries');
         }
     }
 
-    async findExpenseById(id: string, user: User): Promise<Deliveries> {
+    async findDeliveryById(id: string, user: UserDocument): Promise<Deliveries> {
+        this.logger.log(`Fetching delivery id=${id} for user=${user._id}`);
+
+        if (!Types.ObjectId.isValid(id)) {
+            throw new BadRequestException('Invalid delivery ID');
+        }
+
         try {
-            this.logger.log(`Fetching deliveries with ID: ${id}...`);
-            const deliveries = await this.deliveriesModel.findOne({ _id: id, user: user._id }).exec();
-            if (!deliveries) {
-                throw new NotFoundException(`Expense with ID ${id} not found.`);
+            const delivery = await this.deliveriesModel.findOne({ _id: id, user: user._id }).exec();
+            if (!delivery) {
+                throw new NotFoundException(`Delivery with ID ${id} not found`);
             }
-            this.logger.log(`Expense with ID ${id} fetched successfully.`);
-            return deliveries;
+            this.logger.log(`Fetched delivery id=${id}`);
+            return delivery;
         } catch (error) {
-            this.logger.error(`Failed to fetch expense with ID: ${id}`, error);
-            throw new InternalServerErrorException(`Failed to fetch expense with ID: ${id}`);
+            this.logger.error(`Failed to fetch delivery id=${id}: ${error.message}`, error.stack);
+            throw error instanceof NotFoundException
+                ? error
+                : new InternalServerErrorException(`Failed to fetch delivery with ID ${id}`);
         }
     }
 
-    async updateExpense(id: string, updateExpenseDto: DeliveryDto, user: User): Promise<Deliveries> {
-        try {
-            this.logger.log(`Updating expense with ID: ${id}...`);
-            const updatedDelevry = await this.deliveriesModel.findOneAndUpdate(
-                { _id: id, user: user._id },
-                updateExpenseDto,
-                { new: true },
-            ).exec();
-            if (!updatedDelevry) {
-                throw new NotFoundException(`Expense with ID ${id} not found.`);
+    async updateDelivery(id: string, dto: UpdateDeliveryDto, user: UserDocument): Promise<Deliveries> {
+        this.logger.log(`Updating delivery id=${id} for user=${user._id}`);
+
+        if (!Types.ObjectId.isValid(id)) {
+            throw new BadRequestException('Invalid delivery ID');
+        }
+
+        const delivery = await this.deliveriesModel.findOne({ _id: id, user: user._id }).exec();
+        if (!delivery) {
+            throw new NotFoundException(`Delivery with ID ${id} not found`);
+        }
+
+        if (dto.storeId && dto.storeId !== delivery.store.toString()) {
+            const store = await this.validateStoreAccess(dto.storeId, user._id.toString(), user.role);
+            if (!store) {
+                throw new BadRequestException('Store not found or you do not have permission');
             }
-            this.logger.log(`Expense with ID ${id} updated successfully.`);
-            return updatedDelevry;
+        }
+
+        try {
+            const updatedDelivery = await this.deliveriesModel
+                .findOneAndUpdate({ _id: id, user: user._id }, { ...dto, updatedAt: new Date() }, { new: true })
+                .exec();
+            if (!updatedDelivery) {
+                throw new NotFoundException(`Delivery with ID ${id} not found`);
+            }
+            this.logger.log(`Updated delivery id=${id}`);
+            return updatedDelivery;
         } catch (error) {
-            this.logger.error(`Failed to update expense with ID: ${id}`, error);
-            throw new InternalServerErrorException(`Failed to update expense with ID: ${id}`);
+            this.logger.error(`Failed to update delivery id=${id}: ${error.message}`, error.stack);
+            throw error instanceof NotFoundException
+                ? error
+                : new InternalServerErrorException(`Failed to update delivery with ID ${id}`);
         }
     }
 
-    async deleteDelivery(id: string, user: User): Promise<{ deleted: boolean }> {
+    async deleteDelivery(id: string, user: UserDocument): Promise<{ deleted: boolean }> {
+        this.logger.log(`Deleting delivery id=${id} for user=${user._id}`);
+
+        if (!Types.ObjectId.isValid(id)) {
+            throw new BadRequestException('Invalid delivery ID');
+        }
+
         try {
-            this.logger.log(`Deleting expense with ID: ${id}...`);
             const result = await this.deliveriesModel.deleteOne({ _id: id, user: user._id }).exec();
             if (result.deletedCount === 0) {
-                throw new NotFoundException(`Expense with ID ${id} not found.`);
+                throw new NotFoundException(`Delivery with ID ${id} not found`);
             }
-            this.logger.log(`Expense with ID ${id} deleted successfully.`);
+            this.logger.log(`Deleted delivery id=${id}`);
             return { deleted: true };
         } catch (error) {
-            this.logger.error(`Failed to delete expense with ID: ${id}`, error);
-            throw new InternalServerErrorException(`Failed to delete expense with ID: ${id}`);
+            this.logger.error(`Failed to delete delivery id=${id}: ${error.message}`, error.stack);
+            throw error instanceof NotFoundException
+                ? error
+                : new InternalServerErrorException(`Failed to delete delivery with ID ${id}`);
         }
     }
 
+    async getInventorySummary(user: UserDocument, storeId: string): Promise<{
+        totalStock: number;
+        outOfStock: number;
+        lowStock: number;
+    }> {
+        this.logger.log(`Fetching inventory summary for user=${user._id}, store=${storeId}`);
+
+        if (!Types.ObjectId.isValid(storeId)) {
+            throw new BadRequestException('Invalid store ID');
+        }
+
+        const store = await this.validateStoreAccess(storeId, user._id.toString(), user.role);
+        if (!store) {
+            throw new BadRequestException('Store not found or you do not have permission');
+        }
+
+        try {
+            const products = await this.productModel.find({ createdBy: user._id, store: storeId }).exec();
+            const totalStock = products.reduce((sum, p) => sum + p.quantity, 0);
+            const outOfStock = products.filter((p) => p.quantity === 0).length;
+            const lowStock = products.filter((p) => p.quantity > 0 && p.quantity <= 10).length;
+
+            this.logger.log(`Inventory summary: totalStock=${totalStock}, outOfStock=${outOfStock}, lowStock=${lowStock}`);
+            return { totalStock, outOfStock, lowStock };
+        } catch (error) {
+            this.logger.error(`Failed to fetch inventory summary: ${error.message}`, error.stack);
+            throw new InternalServerErrorException('Failed to fetch inventory summary');
+        }
+    }
+
+    private async validateStoreAccess(storeId: string, userId: string, userRole: UserRoleEnum[]): Promise<any> {
+        const storeModel = this.productModel.db.model('Store');
+        let store;
+
+        if (userRole.includes(UserRoleEnum.ADMIN)) {
+            store = await storeModel.findById(storeId).exec();
+        } else {
+            store = await storeModel.findOne({ _id: storeId, owner: userId }).exec();
+        }
+
+        return store;
+    }
 }

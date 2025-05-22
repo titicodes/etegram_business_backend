@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import mongoose, { Document } from "mongoose";
+import mongoose, { Document, Types } from "mongoose";
 import { User } from "src/module/user/schema/user.schema";
 
 @Schema({ timestamps: true })
@@ -40,8 +40,37 @@ export class Deliveries {
     @Prop()
     extraDetails: string;
 
-    @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true })
-    user: User;
+    @Prop({ required: true })
+    orderId: string;
+
+    @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+    user: Types.ObjectId;
+
+    @Prop({ type: Types.ObjectId, ref: 'Store', required: true })
+    store: Types.ObjectId;
+
+    @Prop([
+        {
+            productCode: { type: String, required: true },
+            quantity: { type: Number, required: true, min: 1 },
+        },
+    ])
+    items: { productCode: string; quantity: number }[];
+
+    @Prop({ type: Types.ObjectId, ref: 'Supply', required: false })
+    supplierId?: Types.ObjectId;
+
+    @Prop({ default: '' })
+    notes: string;
+
+    @Prop({ enum: ['PENDING', 'DELIVERED', 'CANCELLED'], default: 'PENDING' })
+    status: string;
+
+    @Prop({ default: Date.now })
+    createdAt: Date;
+
+    @Prop({ default: Date.now })
+    updatedAt: Date;
 
 }
 export type DeliveriesDocument = Deliveries & Document;

@@ -1,26 +1,45 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import mongoose, { Document, Types } from 'mongoose';
+import { UserRoleEnum } from 'src/common/enums/user.enum';
 import { Interest } from 'src/module/interest/schemas/interest.schema';
-import { Store } from 'src/module/store/schema/store.schema';
 
 @Schema({ timestamps: true })
-export class User {
-  @Prop({ default: false, required: false })
-  deviceToken: string;
-
-  _id: Types.ObjectId;
+export class User extends Document {
+  @Prop({ required: true })
+  name: string;
 
   @Prop({ required: true, unique: true })
   email: string;
 
-  @Prop({ required: false })
+  @Prop({ required: true, select: false })
+  password: string;
+
+  @Prop()
   phone: string;
+
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'Store' }], default: [] })
+  stores: Types.ObjectId[];
+
+  @Prop()
+  refreshToken?: string;
+
+  @Prop()
+  fcmToken?: string;
+
+  @Prop({ default: '1111' })
+  pin: string;
+
+  @Prop({ default: false })
+  defaultPinChanged: boolean;
+
+  @Prop({ default: false, required: false })
+  deviceToken: string;
+
+  // _id: Types.ObjectId;
 
   @Prop({ type: Number, default: 0 })
   point: number;
 
-  @Prop()
-  name: string;
 
   @Prop({ type: String, default: null })
   image: string;
@@ -34,8 +53,8 @@ export class User {
   @Prop({ default: false })
   emailVerified: boolean;
 
-  @Prop({ select: false })
-  password: string;
+  @Prop({ type: [String], enum: UserRoleEnum, default: [UserRoleEnum.CUSTOMER] })
+  role: UserRoleEnum[];
 
   @Prop()
   country: string;
@@ -58,11 +77,6 @@ export class User {
   @Prop({ default: '' })
   firstName: string;
 
-  @Prop({ type: Number, default: 1111 })
-  pin: number;
-
-  @Prop({ type: Boolean, default: false })
-  defaultPinChanged: boolean;
 
   @Prop({ default: '' })
   lastName: string;
@@ -94,8 +108,6 @@ export class User {
   @Prop({ default: false })
   isGoogleAuth: boolean;
 
-  @Prop()
-  refreshToken: string;
 
   @Prop({ default: false })
   isPremium: boolean;
@@ -115,9 +127,13 @@ export class User {
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null })
   store: mongoose.Types.ObjectId;
 
+  @Prop({ default: Date.now })
+  createdAt: Date;
 
-  @Prop()
-  fcmToken?: string;
+  @Prop({ default: Date.now })
+  updatedAt: Date;
+
 }
+
 export type UserDocument = User & Document;
 export const UserSchema = SchemaFactory.createForClass(User);

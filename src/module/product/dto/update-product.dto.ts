@@ -1,6 +1,4 @@
-// In your update-product.dto.ts
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
-import { Types } from 'mongoose';
+import { IsString, IsNumber, IsOptional, Min, IsDateString } from 'class-validator';
 
 export class UpdateProductDto {
   @IsOptional()
@@ -13,52 +11,32 @@ export class UpdateProductDto {
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
   price?: number;
 
   @IsOptional()
-  @IsString()
-  category?: string; // Expecting category name
-
-  @IsOptional()
   @IsNumber()
+  @Min(0)
   quantity?: number;
 
   @IsOptional()
   @IsString()
-  image?: string;
+  category?: string;
 
   @IsOptional()
-  @IsString()
+  @IsDateString()
   expiryDate?: string;
 
   @IsOptional()
-  @IsNumber()
-  unitPrice?: number;
-
-  @IsOptional()
-  unitId?: Types.ObjectId;
-
-  @IsOptional()
-  @IsNumber()
-  totalCost?: number;
-
-  @IsOptional()
   @IsString()
-  size?: string;
+  code?: string;
+
+  @IsOptional()
+  @IsString({ each: true })
+  brands?: string[];
 
   @IsOptional()
   @IsNumber()
-  totalQuantity?: number;
-
-  @IsOptional()
-  @IsNumber()
-  minQuantity?: number;
-
-  @IsOptional()
-  @IsString()
-  supplyTo?: string;
-
-  @IsOptional()
-  @IsString()
-  brands?: string; // Add brands to the DTO
+  @Min(0)
+  costPrice?: number;
 }

@@ -7,6 +7,7 @@ import {
   MaxLength,
   IsNotEmpty,
   IsCurrency,
+  IsEnum,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
@@ -51,30 +52,33 @@ export class CreateUserDto {
   @ApiProperty({ description: 'The country of the user' })
   @IsString()
   @IsNotEmpty()
-  country: string; // e.g., "Nigeria"
+  country?: string;
 
   @ApiProperty({ description: 'The state of the user' })
   @IsString()
   @IsNotEmpty()
-  state: string;
+  state?: string;
 
   @ApiProperty({ description: 'The currency of the user' })
   @IsString()
   @IsNotEmpty()
   @IsString()
-  currency: string;
+  currency?: string;
   
   @ApiProperty({ description: 'The last area of the user' })
   @IsString()
-  area: string;
+  area?: string;
 
   @ApiProperty({ description: 'The last city of the user' })
   @IsString()
   @IsNotEmpty()
-  city: string;
+  city?: string;
 
-  @ApiProperty({ description: 'The business type of the user', required: false }) // Make it optional if needed
-  @IsString()
-  @IsOptional() // If business type is not always required
-  businessType?: string; // e.g., "Retail", "Wholesale", "Services"
+  @ApiProperty({ description: 'The business type of the user', required: false })
+  @IsOptional()
+  businessType?: string; 
+
+  @IsEnum(UserRoleEnum, { each: true })
+  @IsOptional()
+  role?: UserRoleEnum[];
 }

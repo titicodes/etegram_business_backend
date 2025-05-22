@@ -1,171 +1,148 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Param,
-  Body,
-  Query,
-  NotFoundException,
-  Patch,
-  Req,
-  UseGuards,
-  BadRequestException,
-  HttpException,
-  HttpStatus,
-} from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Query, Param, Request, UseGuards } from '@nestjs/common';
 import { ProductService } from './product.service';
-import { CreateProductDto } from './dto/create-product.dto';
-import { UpdateProductDto } from './dto/update-product.dto';
-import { FilterProductDTO } from './dto/filter-product.dto';
-import { Product } from './schema/product.schema';
 import { JwtAuthGuard } from '../auth/guard/jwtGuard';
-import { PaginationQueryDto } from './dto/pagination-querry.dto';
-import { Types } from 'mongoose';
+import { CreateProductDto } from './dto/create-product.dto';
+import { ExpiringAndLowStockQueryDto } from './dto/expiring-and-low-stock-query.dto';
+import { ExpiringProductsQueryDto } from './dto/expiring-products-query.dto';
+import { FilterProductDto } from './dto/filter-product.dto';
+import { LowStockProductsQueryDto } from './dto/low-stock-products-query.dto';
+import { SupplyProductDto } from './dto/supply-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
+
 
 @Controller('products')
-@UseGuards(JwtAuthGuard)
 export class ProductController {
   constructor(private readonly productService: ProductService) { }
 
-  /**
-   * 🔍 Search products using name, category, or keyword
-   */
-  @Get('search')
-  async searchProducts(@Query() filterProductDTO: FilterProductDTO): Promise<any> {
-    return this.productService.getFilteredProducts(filterProductDTO, 1, 10);
+  @UseGuards(JwtAuthGuard)
+  @Post('add')
+  async addProduct(@Body() createProductDto: CreateProductDto, @Body('storeId') storeId: string, @Request() req) {
+    return this.productService.addProduct(createProductDto, req.user._id, storeId, req.user.role);
   }
 
-  /**
-   * ➕ Add a new product (Manual Entry)
-   */
-  @Post()
-  async createProduct(@Body() createProductDto: CreateProductDto, @Req() req): Promise<Product> {
-    return this.productService.addProduct(createProductDto, req.user._id.toString());
+  @UseGuards(JwtAuthGuard)
+  @Post('scan')
+  async scanAndAddProduct(@Body() createProductDto: CreateProductDto, @Body('storeId') storeId: string, @Request() req) {
+    return this.productService.scanAndAddProduct(createProductDto, req.user._id, storeId, req.user.role);
   }
 
-  /**
-   * ✏️ Update an existing product
-   */
-  @Put(':id')
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id')
   async updateProduct(
     @Param('id') id: string,
     @Body() updateProductDto: UpdateProductDto,
-    @Req() req, // Inject the Request object
-  ): Promise<Product> {
-    return this.productService.updateProduct(id, updateProductDto, req.user._id.toString()); // Pass userId
-  }
-
-  /**
-   * ❌ Delete a product
-   */
-  @Delete(':id')
-  async deleteProduct(@Param('id') id: string, @Req() req): Promise<{ deleted: boolean }> { // Inject the Request object
-    return this.productService.deleteProduct(id, req.user._id.toString()); // Pass userId
-  }
-
-  /**
-   * 🚀 Supply an existing product (Increase stock)
-   */
-  @Patch(':id/supply')
-  async supplyProduct(
-    @Param('id') id: string,
-    @Body('stock') additionalStock: number,
-  ): Promise<Product> {
-    return this.productService.supplyProduct(id, additionalStock); // Supply doesn't seem to be owner-specific
-  }
-
-  /**
-   * 📷 Scan & Add a new product
-   */
-  @Post('scan-and-add')
-  @UseGuards(JwtAuthGuard) // Make sure you have your authentication guard in place
-  async createScannedProduct(
-    @Body() dto: CreateProductDto, // Expecting storeId in the DTO
-    @Req() req,
+    @Body('storeId') storeId: string,
+    @Request() req,
   ) {
-    const userId = req.user['_id'].toString();
-    return this.productService.addProduct(dto, userId); // Pass the DTO and the userId
+    return this.productService.updateProduct(id, updateProductDto, req.user._id, storeId, req.user.role);
   }
 
-  @Get()
-  async getAllProducts(
-    @Query() paginationQuery: PaginationQueryDto,
-    @Req() req,
-  ) {
-    const { page, limit } = paginationQuery;
-    //const storeId = req.user.storeId; // or wherever you're storing the storeId
-    return this.productService.findAll(req.user._id.toString(), page, limit);
-  }
-
-
-  @Get('expiring')
-  async getExpiringProducts(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
-  ) {
-    return this.productService.getExpiringProducts(page, limit);
-  }
-
-  @Get('low-stock')
-  async getLowStockProducts(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
-  ) {
-    return this.productService.getLowStockProducts(page, limit);
-  }
-
-  @Get('by-code/:code')
-  async getProductByBarcode(@Param('code') code: string): Promise<Product> {
-    return this.productService.getProductByBarcode(code);
-  }
-
-  /**
-   * ➕ Add a new product (Manual entry, optional scanning) - Consider renaming for clarity
-   */
-  @Post('manual-add')
   @UseGuards(JwtAuthGuard)
-  async createManualProduct(@Body() createProductDto: CreateProductDto, @Req() req): Promise<Product> {
-    return this.productService.addProduct(createProductDto, req.user._id.toString());
+  @Delete(':id')
+  async deleteProduct(@Param('id') id: string, @Body('storeId') storeId: string, @Request() req) {
+    return this.productService.deleteProduct(id, req.user._id, storeId, req.user.role);
   }
 
-
-  @Get('inventory-summary')
-  async getInventorySummary(): Promise<{
-    totalCost: number;
-    totalSellingPrice: number;
-    totalStock: number;
-  }> {
-    return this.productService.getInventorySummary();
+  @UseGuards(JwtAuthGuard)
+  @Post('supply')
+  async supplyProduct(@Body() supplyProductDto: SupplyProductDto, @Body('storeId') storeId: string, @Request() req) {
+    return this.productService.supplyProduct(
+      supplyProductDto.id,
+      supplyProductDto.additionalQuantity,
+      req.user._id,
+      storeId,
+      req.user.role,
+    );
   }
 
-  @Get('check-code')
-  async checkProductCode(
-    @Query('code') code: string,
-    @Query('ownerId') ownerId: string,
-    @Query('storeId') storeId: string,
+  @UseGuards(JwtAuthGuard)
+  @Get('filter/:storeId')
+  async getFilteredProducts(
+    @Param('storeId') storeId: string,
+    @Query() filterProductDto: FilterProductDto,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @Request() req,
   ) {
-    try {
-      if (!code || !ownerId || !storeId) {
-        throw new HttpException('Missing required query parameters', HttpStatus.BAD_REQUEST);
-      }
-      const existsResult = await this.productService.checkProductExistenceByCode(code, ownerId, storeId);
-      return { success: true, data: existsResult, message: 'Request completed successfully' };
-    } catch (error) {
-      console.error('Error checking product code:', error);
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new HttpException('Internal server error', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    return this.productService.getFilteredProducts(filterProductDto, req.user._id, storeId, page, limit);
   }
 
-  /**
-   * 🆔 Get a single product by ID
-   */
-  @Get(':id')
-  async getProduct(@Param('id') id: string): Promise<Product> {
-    return this.productService.findOne(id); // Consider adding owner check here if needed
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/:storeId')
+  async findOne(@Param('id') id: string, @Param('storeId') storeId: string, @Request() req) {
+    return this.productService.findOne(id, req.user._id, storeId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('code/:code/:storeId')
+  async searchProductByCode(@Param('code') code: string, @Param('storeId') storeId: string, @Request() req) {
+    return this.productService.searchProductByCode(code, req.user._id, storeId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('check-code/:code/:storeId')
+  async checkProductExistenceByCode(@Param('code') code: string, @Param('storeId') storeId: string, @Request() req) {
+    return this.productService.checkProductExistenceByCode(code, req.user._id, storeId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('expiring/:storeId')
+  async getExpiringProducts(
+    @Param('storeId') storeId: string,
+    @Query() query: ExpiringProductsQueryDto,
+    @Request() req,
+  ) {
+    return this.productService.getExpiringProducts(
+      req.user._id,
+      storeId,
+      query.days || 30,
+      query.page || 1,
+      query.limit || 10,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('low-stock/:storeId')
+  async getLowStockProducts(
+    @Param('storeId') storeId: string,
+    @Query() query: LowStockProductsQueryDto,
+    @Request() req,
+  ) {
+    return this.productService.getLowStockProducts(
+      req.user._id,
+      storeId,
+      query.threshold || 5,
+      query.page || 1,
+      query.limit || 10,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('total-stock/:storeId')
+  async getTotalStock(@Param('storeId') storeId: string, @Request() req) {
+    return this.productService.getTotalStock(req.user._id, storeId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('summary/:storeId')
+  async getInventorySummary(@Param('storeId') storeId: string, @Request() req) {
+    return this.productService.getInventorySummary(req.user._id, storeId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('expiring-and-low-stock/:storeId')
+  async getExpiringAndLowStockProducts(
+    @Param('storeId') storeId: string,
+    @Query() query: ExpiringAndLowStockQueryDto,
+    @Request() req,
+  ) {
+    return this.productService.getExpiringAndLowStockProducts(
+      req.user._id,
+      storeId,
+      query.expiryDays || 30,
+      query.stockThreshold || 5,
+      query.page || 1,
+      query.limit || 10,
+    );
   }
 }

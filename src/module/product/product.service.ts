@@ -1,361 +1,600 @@
-import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
-import mongoose, { isValidObjectId, Model, Types } from 'mongoose';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { FilterProductDTO } from './dto/filter-product.dto';
+import { Model, Types } from 'mongoose';
 import { Product, ProductDocument } from './schema/product.schema';
-import { UpdateProductDto } from './dto/update-product.dto';
-import { CreateProductDto } from './dto/create-product.dto';
-import { ProductCategoriesService } from '../product-category/product-category.service';
-import { ProductCategory } from '../product-category/schema/product-category.schema';
 import { Store, StoreDocument } from '../store/schema/store.schema';
+import { ProductCategoriesService } from '../product-category/product-category.service';
+import { UserRoleEnum } from '../../common/enums/user.enum';
+import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
+import { FilterProductDto } from './dto/filter-product.dto';
 
 @Injectable()
 export class ProductService {
   constructor(
-    @InjectModel(Product.name)
-    private readonly productModel: Model<ProductDocument>,
+    @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
     @InjectModel(Store.name) private readonly storeModel: Model<StoreDocument>,
     private readonly categoryService: ProductCategoriesService,
   ) { }
 
-  /**
-   * 🔍 Search for products by name, category, or keyword
-   */
-  async getFilteredProducts(filterProductDTO: FilterProductDTO, page: number = 1, limit: number = 10): Promise<any> {
-    const { category, search } = filterProductDTO;
-    const query: any = {};
+  async addProduct(createProductDto: CreateProductDto, ownerId: string, storeId: string, userRole: UserRoleEnum[]): Promise<ProductDocument> {
+    try {
+      console.log('[ProductService][addProduct] Attempting to add product:', {
+        storeId,
+        ownerId,
+        productName: createProductDto.name,
+        userRole,
+      });
 
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-        { code: { $regex: search, $options: 'i' } }
-      ];
+      // Validate user role
+      if (!userRole.includes(UserRoleEnum.STORE_OWNER) && !userRole.includes(UserRoleEnum.ADMIN)) {
+        console.error('[ProductService][addProduct] Unauthorized access:', { ownerId, userRole });
+        throw new UnauthorizedException('Only store owners or admins can add products');
+      }
+
+      // Validate storeId
+      if (!Types.ObjectId.isValid(storeId)) {
+        console.error('[ProductService][addProduct] Invalid store ID:', { storeId });
+        throw new BadRequestException('Invalid store ID');
+      }
+
+      // Check store ownership (unless user is ADMIN)
+      let store: StoreDocument | null;
+      if (userRole.includes(UserRoleEnum.ADMIN)) {
+        store = await this.storeModel.findById(storeId).exec();
+      } else {
+        store = await this.storeModel.findOne({ _id: storeId, owner: ownerId }).exec();
+      }
+
+      if (!store) {
+        console.error('[ProductService][addProduct] Store not found or unauthorized:', { storeId, ownerId });
+        throw new BadRequestException('Store not found or you do not have permission');
+      }
+
+      // Validate product data
+      if (!createProductDto.name || createProductDto.price < 0 || createProductDto.quantity < 0) {
+        console.error('[ProductService][addProduct] Invalid product data:', { createProductDto });
+        throw new BadRequestException('Invalid product data: name, price, and quantity are required and must be valid');
+      }
+
+      // Check for duplicate product code
+      if (createProductDto.code) {
+        const existingProduct = await this.productModel.findOne({ code: createProductDto.code, store: storeId }).exec();
+        if (existingProduct) {
+          console.error('[ProductService][addProduct] Product code already exists:', { code: createProductDto.code });
+          throw new ConflictException('Product code already exists');
+        }
+      }
+
+      // Handle category
+      let categoryId: Types.ObjectId | undefined;
+      if (createProductDto.category) {
+        const categoryEntity = await this.categoryService.findOrCreate(createProductDto.category);
+        categoryId = categoryEntity._id as Types.ObjectId;
+      }
+
+      // Create new product
+      const newProduct = new this.productModel({
+        ...createProductDto,
+        categoryId,
+        store: store._id,
+        createdBy: ownerId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      await newProduct.save();
+
+      // Update store's products array
+      await this.storeModel.updateOne({ _id: store._id }, { $push: { products: newProduct._id } }).exec();
+
+      console.log('[ProductService][addProduct] Product added successfully:', {
+        productId: newProduct._id,
+        storeId,
+        ownerId,
+      });
+
+      return newProduct;
+    } catch (error) {
+      console.error('[ProductService][addProduct] Error:', error);
+      throw new BadRequestException(error.message || 'Failed to add product');
     }
+  }
 
-    if (category && mongoose.Types.ObjectId.isValid(category)) {
-      query.categoryId = new mongoose.Types.ObjectId(category);
-    } else if (category) {
-      throw new BadRequestException('Invalid category ID format');
-    }
-
-    const skip = (page - 1) * limit;
-
-    const products = await this.productModel
-      .find(query)
-      .skip(skip)
-      .limit(limit)
-      .populate('categoryId') // Removed unitId
-      .exec();
-
-    const total = await this.productModel.countDocuments(query);
-
-    return {
-      data: products,
-      metadata: {
-        total,
+  async getFilteredProducts(
+    filterProductDto: FilterProductDto,
+    ownerId: string,
+    storeId: string,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<any> {
+    try {
+      console.log('[ProductService][getFilteredProducts] Fetching filtered products:', {
+        ownerId,
+        storeId,
+        filter: filterProductDto,
         page,
         limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
-  }
+      });
 
+      const { category, search } = filterProductDto;
+      const query: any = { createdBy: ownerId, store: storeId };
 
-  /**
-   * 🆔 Get a single product by ID
-   */
-  async findOne(id: string, userId?: string): Promise<Product> {
-    if (!Types.ObjectId.isValid(id)) {
-      throw new BadRequestException('Invalid product ID format');
-    }
-
-    const query: any = { _id: id };
-    if (userId) {
-      query.owner = userId;
-    }
-
-    const product = await this.productModel.findById(query).populate('categoryId').populate('unitId').exec();
-    if (!product) throw new NotFoundException('Product not found');
-    return product;
-  }
-
-  /**
-   * 🔍 Search for a product by barcode before scanning
-   */
-  async searchProductByCode(code: string): Promise<Product | null> {
-    return this.productModel.findOne({ code }).exec();
-  }
-
-  /**
-   * ➕ Add a new product (Scanning required for new products)
-   */
-  async addProduct(createProductDTO: CreateProductDto, ownerId: string): Promise<Product> {
-    const { code, store: storeIdString, category, brands, ...rest } = createProductDTO;
-
-    // Verify if the store belongs to the owner (optional, but recommended for security)
-    const storeExists = await this.storeModel.exists({ _id: storeIdString, owner: ownerId });
-    if (!storeExists) {
-      throw new BadRequestException('Store not found or does not belong to the user.');
-    }
-
-    const existingProduct = await this.productModel.findOne({
-      code,
-      owner: ownerId,
-      store: new Types.ObjectId(storeIdString) //  Include store in the query!
-    }).exec();
-    if (existingProduct) throw new ConflictException('Product code already exists in this store');
-
-    let categoryEntity: any; // Use 'any' to avoid strict type checking here
-    if (category) {
-      categoryEntity = await this.categoryService.findOrCreate(category);
-    } else {
-      categoryEntity = await this.categoryService.findOrCreate('Uncategorized');
-    }
-
-    const newProduct = new this.productModel({
-      ...rest,
-      categoryId: categoryEntity?._id,
-      category: category,
-      brands: brands,
-      owner: ownerId,
-      store: new Types.ObjectId(storeIdString),
-      code: code,
-    });
-
-    console.log(`Adding product: Code=${code}, Owner=${ownerId}, Store=${storeIdString}`);
-    return newProduct.save();
-  }
-
-
-  /**
-   * ✏️ Update an existing product
-   */
-  async updateProduct(id: string, updateProductDTO: UpdateProductDto, userId: string): Promise<Product> {
-    const existingProduct = await this.productModel.findOne({ _id: id, owner: userId });
-    if (!existingProduct) throw new NotFoundException('Product not found or you do not have permission to update it');
-
-    const { category, brands, ...rest } = updateProductDTO;
-
-    if (category) {
-      const categoryEntity = await this.categoryService.findOrCreate(category);
-      if (!categoryEntity) {
-        throw new NotFoundException('Failed to find or create category.');
+      if (search) {
+        query.$or = [
+          { name: { $regex: search, $options: 'i' } },
+          { description: { $regex: search, $options: 'i' } },
+          { code: { $regex: search, $options: 'i' } },
+        ];
       }
-      existingProduct.categoryId = categoryEntity._id as Types.ObjectId;
-      existingProduct.category = category;
-    }
 
-    if (brands) {
-      existingProduct.brands = brands;
-    }
+      if (category && Types.ObjectId.isValid(category)) {
+        query.categoryId = new Types.ObjectId(category);
+      } else if (category) {
+        console.error('[ProductService][getFilteredProducts] Invalid category ID:', { category });
+        throw new BadRequestException('Invalid category ID format');
+      }
 
-    Object.assign(existingProduct, rest);
-    return existingProduct.save();
-  }
+      const skip = (page - 1) * limit;
 
-  /**
-   * ❌ Delete a product
-   */
-  async deleteProduct(id: string, userId: string): Promise<{ deleted: boolean }> {
-    const result = await this.productModel.deleteOne({ _id: id, owner: userId });
-    return { deleted: result.deletedCount > 0 };
-  }
+      const products = await this.productModel
+        .find(query)
+        .skip(skip)
+        .limit(limit)
+        .populate('categoryId')
+        .exec();
 
-  /**
-   * 🚀 Supply an existing product (Increase stock & optionally update details)
-   * - If product exists, update stock & optional details
-   * - If product does NOT exist, requires scanning & adding
-   */
-  async supplyProduct(id: string, additionalStock: number): Promise<Product> {
-    const existingProduct = await this.productModel.findById(id);
+      const total = await this.productModel.countDocuments(query);
 
-    if (existingProduct) {
-      existingProduct.stock += additionalStock;
-      return existingProduct.save();
-    } else {
-      throw new NotFoundException('Product not found.');
+      console.log('[ProductService][getFilteredProducts] Products fetched:', { total, page, limit });
+
+      return {
+        data: products,
+        metadata: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      };
+    } catch (error) {
+      console.error('[ProductService][getFilteredProducts] Error:', error);
+      throw new BadRequestException(error.message || 'Failed to fetch filtered products');
     }
   }
 
-  /**
-   * 📷 Scan & Add a new product if it does not exist in the search
-   */
-  async scanAndAddProduct(createProductDto: CreateProductDto, ownerId: string): Promise<Product> {
-    return this.addProduct(createProductDto, ownerId);
+  async findOne(id: string, ownerId: string, storeId: string): Promise<ProductDocument> {
+    try {
+      console.log('[ProductService][findOne] Fetching product:', { id, ownerId, storeId });
+
+      if (!Types.ObjectId.isValid(id)) {
+        console.error('[ProductService][findOne] Invalid product ID:', { id });
+        throw new BadRequestException('Invalid product ID format');
+      }
+
+      const product = await this.productModel
+        .findOne({ _id: id, createdBy: ownerId, store: storeId })
+        .populate('categoryId')
+        .exec();
+      if (!product) {
+        console.error('[ProductService][findOne] Product not found:', { id, ownerId, storeId });
+        throw new NotFoundException('Product not found or you do not have permission');
+      }
+
+      console.log('[ProductService][findOne] Product fetched:', { productId: id });
+      return product;
+    } catch (error) {
+      console.error('[ProductService][findOne] Error:', error);
+      throw new BadRequestException(error.message || 'Failed to fetch product');
+    }
   }
 
-  // 👇 ADD THIS FUNCTION 👇
-  async findProductByCodeAndOwnerAndStore(
+  async searchProductByCode(code: string, ownerId: string, storeId: string): Promise<ProductDocument | null> {
+    try {
+      console.log('[ProductService][searchProductByCode] Searching product:', { code, ownerId, storeId });
+
+      if (!code || !Types.ObjectId.isValid(ownerId) || !Types.ObjectId.isValid(storeId)) {
+        console.error('[ProductService][searchProductByCode] Invalid input:', { code, ownerId, storeId });
+        throw new BadRequestException('Invalid code, ownerId, or storeId');
+      }
+
+      const product = await this.productModel
+        .findOne({
+          code,
+          createdBy: new Types.ObjectId(ownerId),
+          store: new Types.ObjectId(storeId),
+        })
+        .populate('categoryId')
+        .exec();
+
+      console.log('[ProductService][searchProductByCode] Search result:', { found: !!product, code });
+      return product;
+    } catch (error) {
+      console.error('[ProductService][searchProductByCode] Error:', error);
+      throw new BadRequestException(error.message || 'Failed to search product');
+    }
+  }
+
+  async updateProduct(id: string, updateProductDto: UpdateProductDto, ownerId: string, storeId: string, userRole: UserRoleEnum[]): Promise<ProductDocument> {
+    try {
+      console.log('[ProductService][updateProduct] Attempting to update product:', { id, ownerId, storeId, userRole });
+
+      // Validate user role
+      if (!userRole.includes(UserRoleEnum.STORE_OWNER) && !userRole.includes(UserRoleEnum.ADMIN)) {
+        console.error('[ProductService][updateProduct] Unauthorized access:', { ownerId, userRole });
+        throw new UnauthorizedException('Only store owners or admins can update products');
+      }
+
+      const existingProduct = await this.productModel
+        .findOne({ _id: id, createdBy: ownerId, store: storeId })
+        .exec();
+      if (!existingProduct) {
+        console.error('[ProductService][updateProduct] Product not found:', { id, ownerId, storeId });
+        throw new NotFoundException('Product not found or you do not have permission');
+      }
+
+      // Handle category
+      if (updateProductDto.category) {
+        const categoryEntity = await this.categoryService.findOrCreate(updateProductDto.category);
+        existingProduct.categoryId = categoryEntity._id as Types.ObjectId;
+        existingProduct.category = updateProductDto.category;
+      }
+
+      Object.assign(existingProduct, updateProductDto);
+      await existingProduct.save();
+
+
+      console.log('[ProductService][updateProduct] Product updated:', { productId: id });
+      return existingProduct;
+    } catch (error) {
+      console.error('[ProductService][updateProduct] Error:', error);
+      throw new BadRequestException(error.message || 'Failed to update product');
+    }
+  }
+
+  async deleteProduct(id: string, ownerId: string, storeId: string, userRole: UserRoleEnum[]): Promise<{ deleted: boolean }> {
+    try {
+      console.log('[ProductService][deleteProduct] Attempting to delete product:', { id, ownerId, storeId, userRole });
+
+      // Validate user role
+      if (!userRole.includes(UserRoleEnum.STORE_OWNER) && !userRole.includes(UserRoleEnum.ADMIN)) {
+        console.error('[ProductService][deleteProduct] Unauthorized access:', { ownerId, userRole });
+        throw new UnauthorizedException('Only store owners or admins can delete products');
+      }
+
+      const result = await this.productModel.deleteOne({
+        _id: id,
+        createdBy: ownerId,
+        store: storeId,
+      }).exec();
+
+      if (result.deletedCount === 0) {
+        console.error('[ProductService][deleteProduct] Product not found:', { id, ownerId, storeId });
+        throw new NotFoundException('Product not found or you do not have permission');
+      }
+
+      // Remove product from store's products array
+      await this.storeModel.updateOne({ _id: storeId }, { $pull: { products: id } }).exec();
+
+      console.log('[ProductService][deleteProduct] Product deleted:', { productId: id });
+      return { deleted: true };
+    } catch (error) {
+      console.error('[ProductService][deleteProduct] Error:', error);
+      throw new BadRequestException(error.message || 'Failed to delete product');
+    }
+  }
+
+  async supplyProduct(id: string, additionalQuantity: number, ownerId: string, storeId: string, userRole: UserRoleEnum[]): Promise<ProductDocument> {
+    try {
+      console.log('[ProductService][supplyProduct] Attempting to supply product:', {
+        id,
+        ownerId,
+        storeId,
+        additionalQuantity,
+        userRole,
+      });
+
+      // Validate user role
+      if (!userRole.includes(UserRoleEnum.STORE_OWNER) && !userRole.includes(UserRoleEnum.ADMIN)) {
+        console.error('[ProductService][supplyProduct] Unauthorized access:', { ownerId, userRole });
+        throw new UnauthorizedException('Only store owners or admins can supply products');
+      }
+
+      const product = await this.productModel
+        .findOne({ _id: id, createdBy: ownerId, store: storeId })
+        .exec();
+      if (!product) {
+        console.error('[ProductService][supplyProduct] Product not found:', { id, ownerId, storeId });
+        throw new NotFoundException('Product not found or you do not have permission');
+      }
+
+      if (additionalQuantity < 0) {
+        console.error('[ProductService][supplyProduct] Invalid quantity:', { additionalQuantity });
+        throw new BadRequestException('Additional quantity must be non-negative');
+      }
+
+      product.quantity += additionalQuantity;
+      product.updatedAt = new Date();
+      await product.save();
+
+      console.log('[ProductService][supplyProduct] Product supplied:', { productId: id, newQuantity: product.quantity });
+      return product;
+    } catch (error) {
+      console.error('[ProductService][supplyProduct] Error:', error);
+      throw new BadRequestException(error.message || 'Failed to supply product');
+    }
+  }
+
+  async scanAndAddProduct(
+    createProductDto: CreateProductDto,
+    ownerId: string,
+    storeId: string,
+    userRole: UserRoleEnum[],
+  ): Promise<ProductDocument> {
+    try {
+      console.log('[ProductService][scanAndAddProduct] Attempting to scan and add product:', {
+        storeId,
+        ownerId,
+        productName: createProductDto.name,
+        userRole,
+      });
+
+      return await this.addProduct(createProductDto, ownerId, storeId, userRole);
+    } catch (error) {
+      console.error('[ProductService][scanAndAddProduct] Error:', error);
+      throw new BadRequestException(error.message || 'Failed to scan and add product');
+    }
+  }
+
+  async checkProductExistenceByCode(
     code: string,
     ownerId: string,
     storeId: string,
-  ): Promise<ProductDocument | null> {
-    return this.productModel.findOne({ code, owner: ownerId, store: storeId }).exec();
-  }
+  ): Promise<{ exists: boolean; product?: ProductDocument }> {
+    try {
+      console.log('[ProductService][checkProductExistenceByCode] Checking product existence:', {
+        code,
+        ownerId,
+        storeId,
+      });
 
-  async findAll(userId: string, page: number, limit: number) {
-    const skip = (page - 1) * limit;
-    const query = { owner: userId }; // Removed store
+      const product = await this.productModel
+        .findOne({ code, createdBy: ownerId, store: storeId })
+        .exec();
 
-    const products = await this.productModel
-      .find(query)
-      .skip(skip)
-      .limit(limit)
-      .populate('categoryId')
-      .exec();
-
-    const total = await this.productModel.countDocuments(query);
-
-    return {
-      data: products,
-      metadata: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
-  }
-
-
-  // 📌 Get All Products (Paginated)
-  async getAllProducts(page: number, limit: number) {
-    return this.productModel.find()
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .exec();
-  }
-
-  async getAllProduct() {
-    return this.productModel.find().exec();
-  }
-
-  // 📌 Get Expiring Products (Within 30 Days)
-  async getExpiringProducts(page: number = 1, limit: number = 10) {
-    const today = new Date();
-    const thirtyDaysLater = new Date();
-    thirtyDaysLater.setDate(today.getDate() + 30);
-
-    const skip = (page - 1) * limit;
-
-    const products = await this.productModel
-      .find({
-        expiryDate: { $gte: today, $lte: thirtyDaysLater },
-      })
-      .skip(skip)
-      .limit(limit)
-      .exec();
-
-    const total = await this.productModel.countDocuments({
-      expiryDate: { $gte: today, $lte: thirtyDaysLater },
-    });
-
-    return {
-      data: products,
-      metadata: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
-  }
-
-
-  // 📌 Get Low Stock Products (Stock < 5)
-  async getLowStockProducts(page: number = 1, limit: number = 10) {
-    const skip = (page - 1) * limit;
-
-    const products = await this.productModel
-      .find({ stock: { $lt: 5 } })
-      .skip(skip)
-      .limit(limit)
-      .exec();
-
-    const total = await this.productModel.countDocuments({ stock: { $lt: 5 } });
-
-    return {
-      data: products,
-      metadata: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
-  }
-
-
-  // 📌 Combined Function to Fetch Expiring and Low Stock Products
-  async getExpiringAndLowStockProducts(page: number = 1, limit: number = 10) {
-    const expiring = await this.getExpiringProducts(page, limit);
-    const lowStock = await this.getLowStockProducts(page, limit);
-
-    return {
-      expiringProducts: expiring,
-      lowStockProducts: lowStock,
-    };
-  }
-
-
-  /**
-   * 📦 Get full product details by barcode for checkout scanning
-   */
-  async getProductByBarcode(code: string): Promise<Product> {
-    const product = await this.productModel.findOne({ code }).populate('categoryId').populate('unitId').exec();
-
-    if (!product) {
-      throw new NotFoundException(`Product with barcode ${code} not found`);
+      console.log('[ProductService][checkProductExistenceByCode] Result:', { exists: !!product, code });
+      return { exists: !!product, product: product || undefined };
+    } catch (error) {
+      console.error('[ProductService][checkProductExistenceByCode] Error:', error);
+      throw new BadRequestException(error.message || 'Failed to check product existence');
     }
+  }
 
-    if (product.stock < 1) {
-      throw new BadRequestException(`Product ${product.name} is out of stock`);
+  async getExpiringProducts(
+    ownerId: string,
+    storeId: string,
+    days: number = 30,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<any> {
+    try {
+      console.log('[ProductService][getExpiringProducts] Fetching expiring products:', {
+        ownerId,
+        storeId,
+        days,
+        page,
+        limit,
+      });
+
+      if (!Types.ObjectId.isValid(ownerId) || !Types.ObjectId.isValid(storeId)) {
+        console.error('[ProductService][getExpiringProducts] Invalid input:', { ownerId, storeId });
+        throw new BadRequestException('Invalid ownerId or storeId');
+      }
+
+      const today = new Date();
+      const expiryThreshold = new Date();
+      expiryThreshold.setDate(today.getDate() + days);
+
+      const query = {
+        createdBy: new Types.ObjectId(ownerId),
+        store: new Types.ObjectId(storeId),
+        expiryDate: { $gte: today, $lte: expiryThreshold },
+      };
+
+      const skip = (page - 1) * limit;
+
+      const products = await this.productModel
+        .find(query)
+        .skip(skip)
+        .limit(limit)
+        .populate('categoryId')
+        .exec();
+
+      const total = await this.productModel.countDocuments(query);
+
+      console.log('[ProductService][getExpiringProducts] Products fetched:', { total, page, limit });
+
+      return {
+        data: products,
+        metadata: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          expiryWindow: `${days} days`,
+        },
+      };
+    } catch (error) {
+      console.error('[ProductService][getExpiringProducts] Error:', error);
+      throw new BadRequestException(error.message || 'Failed to fetch expiring products');
     }
-
-    return product;
   }
 
-  /**
-   * ✅ Check if a product code already exists for a specific owner and store
-   */
-  async checkProductCodeExists(code: string, ownerId: string, storeId: string): Promise<boolean> {
-    const existingProduct = await this.productModel.findOne({ code, owner: ownerId, store: storeId }).exec();
-    return !!existingProduct;
+  async getLowStockProducts(
+    ownerId: string,
+    storeId: string,
+    threshold: number = 5,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<any> {
+    try {
+      console.log('[ProductService][getLowStockProducts] Fetching low stock products:', {
+        ownerId,
+        storeId,
+        threshold,
+        page,
+        limit,
+      });
+
+      if (!Types.ObjectId.isValid(ownerId) || !Types.ObjectId.isValid(storeId)) {
+        console.error('[ProductService][getLowStockProducts] Invalid input:', { ownerId, storeId });
+        throw new BadRequestException('Invalid ownerId or storeId');
+      }
+
+      const query = {
+        createdBy: new Types.ObjectId(ownerId),
+        store: new Types.ObjectId(storeId),
+        quantity: { $lte: threshold },
+      };
+
+      const skip = (page - 1) * limit;
+
+      const products = await this.productModel
+        .find(query)
+        .skip(skip)
+        .limit(limit)
+        .populate('categoryId')
+        .exec();
+
+      const total = await this.productModel.countDocuments(query);
+
+      console.log('[ProductService][getLowStockProducts] Products fetched:', { total, page, limit });
+
+      return {
+        data: products,
+        metadata: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          stockThreshold: threshold,
+        },
+      };
+    } catch (error) {
+      console.error('[ProductService][getLowStockProducts] Error:', error);
+      throw new BadRequestException(error.message || 'Failed to fetch low stock products');
+    }
   }
 
-  /**
-    * ❓ Check if a product exists by code, owner, and store
-    */
-  async checkProductExistenceByCode(code: string, ownerId: string, storeId: string): Promise<{ exists: boolean }> {
-    const existsResult = await this.productModel.exists({ code, owner: ownerId, store: storeId });
-    return { exists: !!existsResult }; // Explicitly convert the result to a boolean
+  async getTotalStock(ownerId: string, storeId: string): Promise<{ totalQuantity: number; products: ProductDocument[] }> {
+    try {
+      console.log('[ProductService][getTotalStock] Fetching total stock:', { ownerId, storeId });
+
+      if (!Types.ObjectId.isValid(ownerId) || !Types.ObjectId.isValid(storeId)) {
+        console.error('[ProductService][getTotalStock] Invalid input:', { ownerId, storeId });
+        throw new BadRequestException('Invalid ownerId or storeId');
+      }
+
+      const query = {
+        createdBy: new Types.ObjectId(ownerId),
+        store: new Types.ObjectId(storeId),
+      };
+
+      const products = await this.productModel.find(query).exec();
+
+      const totalQuantity = products.reduce((sum, product) => sum + (product.quantity || 0), 0);
+
+      console.log('[ProductService][getTotalStock] Total stock fetched:', { totalQuantity, ownerId, storeId });
+
+      return {
+        totalQuantity,
+        products,
+      };
+    } catch (error) {
+      console.error('[ProductService][getTotalStock] Error:', error);
+      throw new BadRequestException(error.message || 'Failed to fetch total stock');
+    }
   }
 
-  /**
-   * 📊 Get a summary of the inventory: total cost, total selling price, and total stock.
-   */
-  async getInventorySummary(): Promise<{
+  async getInventorySummary(ownerId: string, storeId: string): Promise<{
     totalCost: number;
     totalSellingPrice: number;
-    totalStock: number;
+    totalQuantity: number;
   }> {
-    const products = await this.productModel.find().exec();
+    try {
+      console.log('[ProductService][getInventorySummary] Fetching inventory summary:', { ownerId, storeId });
 
-    let totalCost = 0;
-    let totalSellingPrice = 0;
-    let totalStock = 0;
+      if (!Types.ObjectId.isValid(ownerId) || !Types.ObjectId.isValid(storeId)) {
+        console.error('[ProductService][getInventorySummary] Invalid input:', { ownerId, storeId });
+        throw new BadRequestException('Invalid ownerId or storeId');
+      }
 
-    for (const product of products) {
-      totalCost += (product.totalCost || 0) * (product.stock || 0);
-      totalSellingPrice += (product.unitPrice || 0) * (product.stock || 0);
-      totalStock += product.stock || 0;
+      const products = await this.productModel
+        .find({ createdBy: ownerId, store: storeId })
+        .exec();
+
+      let totalCost = 0;
+      let totalSellingPrice = 0;
+      let totalQuantity = 0;
+
+      for (const product of products) {
+        totalCost += (product.costPrice || product.price || 0) * (product.quantity || 0);
+        totalSellingPrice += (product.price || 0) * (product.quantity || 0);
+        totalQuantity += product.quantity || 0;
+      }
+
+      console.log('[ProductService][getInventorySummary] Summary fetched:', {
+        totalCost,
+        totalSellingPrice,
+        totalQuantity,
+      });
+
+      return {
+        totalCost: parseFloat(totalCost.toFixed(2)),
+        totalSellingPrice: parseFloat(totalSellingPrice.toFixed(2)),
+        totalQuantity,
+      };
+    } catch (error) {
+      console.error('[ProductService][getInventorySummary] Error:', error);
+      throw new BadRequestException(error.message || 'Failed to fetch inventory summary');
     }
+  }
 
-    return {
-      totalCost: parseFloat(totalCost.toFixed(2)),
-      totalSellingPrice: parseFloat(totalSellingPrice.toFixed(2)),
-      totalStock,
-    };
+  async getExpiringAndLowStockProducts(
+    ownerId: string,
+    storeId: string,
+    expiryDays: number = 30,
+    stockThreshold: number = 5,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{
+    expiringProducts: any;
+    lowStockProducts: any;
+    totalQuantity: number;
+  }> {
+    try {
+      console.log('[ProductService][getExpiringAndLowStockProducts] Fetching expiring and low stock products:', {
+        ownerId,
+        storeId,
+        expiryDays,
+        stockThreshold,
+        page,
+        limit,
+      });
+
+      const expiring = await this.getExpiringProducts(ownerId, storeId, expiryDays, page, limit);
+      const lowStock = await this.getLowStockProducts(ownerId, storeId, stockThreshold, page, limit);
+      const totalStockResult = await this.getTotalStock(ownerId, storeId);
+
+      console.log('[ProductService][getExpiringAndLowStockProducts] Data fetched:', {
+        expiringCount: expiring.metadata.total,
+        lowStockCount: lowStock.metadata.total,
+        totalQuantity: totalStockResult.totalQuantity,
+      });
+
+      return {
+        expiringProducts: expiring,
+        lowStockProducts: lowStock,
+        totalQuantity: totalStockResult.totalQuantity,
+      };
+    } catch (error) {
+      console.error('[ProductService][getExpiringAndLowStockProducts] Error:', error);
+      throw new BadRequestException(error.message || 'Failed to fetch expiring and low stock products');
+    }
   }
 }

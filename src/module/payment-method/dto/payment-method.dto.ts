@@ -1,4 +1,10 @@
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsEnum } from 'class-validator';
+
+enum PaymentMethodType {
+  CASH = 'CASH',
+  CARD = 'CARD',
+  TRANSFER = 'TRANSFER',
+}
 
 export class CreatePaymentMethodDto {
   @IsString()
@@ -17,9 +23,21 @@ export class CreatePaymentMethodDto {
   @IsNotEmpty()
   accountName: string;
 
+  // @IsString()
+  // @IsOptional()
+  // extraInfo?: string;
+
+  @IsEnum(PaymentMethodType)
+  @IsNotEmpty()
+  type: PaymentMethodType;
+
+  @IsString()
+  @IsNotEmpty()
+  storeId: string;
+
   @IsString()
   @IsOptional()
-  extraInfo?: string;
+  details?: string;
 }
 
 export class UpdatePaymentMethodDto {
@@ -39,7 +57,19 @@ export class UpdatePaymentMethodDto {
   @IsOptional()
   accountName?: string;
 
+  // @IsString()
+  // @IsOptional()
+  // extraInfo?: string;
+
+  @IsEnum(PaymentMethodType)
+  @IsOptional()
+  type?: PaymentMethodType;
+
   @IsString()
   @IsOptional()
-  extraInfo?: string;
+  storeId?: string;
+
+  @IsString()
+  @IsOptional()
+  details?: string;
 }

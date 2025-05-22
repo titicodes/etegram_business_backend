@@ -1,35 +1,48 @@
 import { Type } from 'class-transformer';
-import { IsNotEmpty, IsArray, IsNumber, IsOptional, IsEnum, IsString, ValidateNested } from 'class-validator';
+import { IsNotEmpty, IsArray, IsNumber, IsOptional, IsEnum, IsString, ValidateNested, Min } from 'class-validator';
 
 export class ScanProductDto {
+  @IsString()
   @IsNotEmpty()
   code: string;
 
-  @IsOptional()
   @IsArray()
-  cart?: { code: string; quantity: number }[];
-}
-
-
-export class CreateCheckoutDto {
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CartItemDto)
-  cart: CartItemDto[];
+  cart: { code: string; quantity: number }[];
 
   @IsString()
   @IsNotEmpty()
-  paymentMethod: string;
+  storeId: string;
+}
+
+
+enum PaymentMethod {
+  CASH = 'CASH',
+  CARD = 'CARD',
+  TRANSFER = 'TRANSFER',
+}
+
+export class CreateCheckoutDto {
+  @IsArray()
+  @IsNotEmpty()
+  cart: { code: string; quantity: number }[];
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
   discount?: number;
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
   tax?: number;
 
   @IsString()
+  @IsNotEmpty()
+  @IsEnum(PaymentMethod)
+  paymentMethod: PaymentMethod;
+
+  @IsString()
+  @IsNotEmpty()
   storeId: string;
 }
 
@@ -41,10 +54,3 @@ export class UpdateOrderStatusDto {
 }
 
 
-class CartItemDto {
-  @IsString()
-  code: string;
-
-  @IsNumber()
-  quantity: number;
-}

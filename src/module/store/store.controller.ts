@@ -1,36 +1,47 @@
-import { Controller, Post, Body, Get, Param, Patch, Put, Req, UseGuards, BadRequestException } from '@nestjs/common';
+import { Body, Controller, Get, Post, Put, Delete, Param, Request, UseGuards } from '@nestjs/common';
 import { StoreService } from './store.service';
 import { CreateStoreDto } from './dto/create-store.dto';
 import { UpdateStoreDto } from './dto/update-store.dto';
-import { Store } from './schema/store.schema';
 import { JwtAuthGuard } from '../auth/guard/jwtGuard';
 
+
 @Controller('stores')
-@UseGuards(JwtAuthGuard)
 export class StoreController {
-  constructor(private readonly storeService: StoreService) { }
+  constructor(private readonly storeService: StoreService) {}
 
-  @Post()
   @UseGuards(JwtAuthGuard)
-  async createStore(@Body() dto: CreateStoreDto, @Req() req: any) {
-    const userId = req.user?._id;
-    if (!userId) throw new BadRequestException('User not authenticated');
-    return this.storeService.create(dto, userId);
+  @Post()
+  create(@Body() createStoreDto: CreateStoreDto, @Request() req) {
+    return this.storeService.create(createStoreDto, req.user._id);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Post(':parentStoreId/branches')
+  createBranch(@Body() createStoreDto: CreateStoreDto, @Param('parentStoreId') parentStoreId: string, @Request() req) {
+    return this.storeService.createBranch(createStoreDto, req.user._id, parentStoreId);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get()
-  async getMyStores(@Req() req): Promise<Store[]> {
-    return this.storeService.findByOwner(req.user._id.toString());
+  findByOwner(@Request() req) {
+    return this.storeService.findByOwner(req.user._id);
   }
 
-  // Add this new route to get a specific store by ID
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
-  async getStoreById(@Param('id') id: string): Promise<Store> {
-    return this.storeService.findById(id);
+  findById(@Param('id') id: string, @Request() req) {
+    return this.storeService.findById(id, req.user._id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Put(':id')
-  async updateStore(@Param('id') id: string, @Body() updateStoreDto: UpdateStoreDto): Promise<Store> {
-    return this.storeService.update(id, updateStoreDto);
+  update(@Param('id') id: string, @Body() updateStoreDto: UpdateStoreDto, @Request() req) {
+    return this.storeService.update(id, updateStoreDto, req.user._id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id')
+  delete(@Param('id') id: string, @Request() req) {
+    return this.storeService.delete(id, req.user._id);
   }
 }

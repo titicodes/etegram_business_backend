@@ -1,15 +1,25 @@
-// payment-method/payment-method.schema.ts
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { User } from 'src/module/user/schema/user.schema';
 
+@Schema({ timestamps: true })
+export class PaymentMethod extends Document {
+  @Prop({ enum: ['CASH', 'CARD', 'TRANSFER'], required: true })
+  type: string;
 
-export type PaymentMethodDocument = PaymentMethod & Document;
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  user: Types.ObjectId;
 
-@Schema()
-export class PaymentMethod {
-  @Prop({ type: Types.ObjectId, ref: 'User' })
-  user: User;
+  @Prop({ type: Types.ObjectId, ref: 'Store', required: true })
+  store: Types.ObjectId;
+
+  @Prop({ default: '' })
+  details: string;
+
+  @Prop({ default: Date.now })
+  createdAt: Date;
+
+  @Prop({ default: Date.now })
+  updatedAt: Date;
 
   @Prop({ required: true })
   name: string;
@@ -27,4 +37,5 @@ export class PaymentMethod {
   extraInfo?: string;
 }
 
-export const PaymentMethodSchema = SchemaFactory.createForClass(PaymentMethod); // Ensure this line exists
+export type PaymentMethodDocument = PaymentMethod & Document;
+export const PaymentMethodSchema = SchemaFactory.createForClass(PaymentMethod);

@@ -8,275 +8,296 @@ import {
   UnauthorizedException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { UserService } from '../user/user.service';
-import { UserRepository } from '../user/user.repository';
-import { LoginDto, VerifyEmailDto } from './dto/create-user.dto';
-import { User, UserDocument } from '../user/schema/user.schema';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { JwtService } from '@nestjs/jwt';
-import { CoreService } from 'src/common/constants/core/service.core';
-import { payload } from './interface/jwtSignPayload';
-import { BaseHelper } from 'src/utils/helper.util';
-import { OtpTypeEnum } from 'src/common/constants/enums/otp.enum';
+import { UserService } from '../user/user.service';
+import { User, UserDocument } from '../user/schema/user.schema';
+import { LoginDto, VerifyEmailDto } from './dto/create-user.dto';
+import { CreateUserDto } from '../user/dto/create-user.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from '../otp/dto/otp.dto';
 import { OtpService } from '../otp/otp.service';
-import { CreateUserDto } from '../user/dto/create-user.dto';
+import { BaseHelper } from '../../utils/helper.util';
+import { OtpTypeEnum } from '../../common/constants/enums/otp.enum';
+import { payload } from './interface/jwtSignPayload';
 
 @Injectable()
-export class AuthService extends CoreService<UserRepository> {
+export class AuthService {
   constructor(
-    private readonly userService: UserService,
-    private readonly userRepository: UserRepository,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
-    private jwtService: JwtService,
+    private readonly userService: UserService,
+    private readonly jwtService: JwtService,
     @Inject(forwardRef(() => OtpService))
     private readonly otpService: OtpService,
-  ) {
-    super(userRepository);
-  }
-
-  async register(payload: CreateUserDto) {
-    try {
-      console.log("Registering user:", payload);
-      const user = await this.userService.createUser(payload);
-      console.log("User created:", user);
-      await this.otpService.sendOTP({
-        email: user.email,
-        type: OtpTypeEnum.VERIFY_EMAIL,
-        phone: user.phone,
-      });
-      return user;
-    } catch (error) {
-      console.error("Registration error:", error);
-      if (error instanceof Error) {
-        console.error("Error Message:", error.message);
-        console.error("Error Stack:", error.stack);
-      }
-      throw new BadRequestException(error.message || 'Registration failed');
-    }
-  }
-
-
-  async decodeToken(token: string) {
-    const user = (await this.jwtService.verify(token)) as payload;
-    if (!user) {
-      throw new NotFoundException('User does not exist');
-    }
-    return user._id; // ✅ Correct field
-  }
-
+  ) {}
 
   async login(dto: LoginDto) {
     try {
-      const user: UserDocument = await this.userService.getUserByEmailIncludePassword(dto.email);
+      console.log('[AuthService][login] Attempting login for:', { email: dto.email });
+
+      const user = await this.userService.getUserByEmailIncludePassword(dto.email);
       if (!user) {
+        console.error('[AuthService][login] User not found:', { email: dto.email });
         throw new NotFoundException('User not found');
       }
 
-      console.log('[login] Attempting login for:', dto.email);
-      console.log('Entered Password:', dto.password);
-      console.log('Stored Hashed Password:', user.password);
-
-      const password = dto.password.trim(); // Trim password
-      console.log('Trimmed Password:', password);
-
-      const passwordMatch = await BaseHelper.compareHashedData(password, user.password);
-      console.log('Password Match:', passwordMatch);
-
+      const passwordMatch = await BaseHelper.compareHashedData(dto.password.trim(), user.password);
       if (!passwordMatch) {
-        console.log("Password comparison failed.");
+        console.error('[AuthService][login] Password mismatch for:', { email: dto.email });
         throw new BadRequestException('Incorrect password');
       }
 
-      // Generate JWT tokens
-      const tokenPayload = { _id: user._id, email: user.email, isAdmin: user.isAdmin };
-
-
+      const tokenPayload: payload = {
+        _id: user._id.toString(),
+        email: user.email,
+        role: user.role || [], // Include role from user, default to empty array if undefined
+      };
       const accessToken = this.jwtService.sign(tokenPayload, {
         secret: process.env.JWT_SECRET,
-        expiresIn: process.env.JWT_EXPIRATION_TIME,
+        expiresIn: process.env.JWT_EXPIRATION_TIME || '15m',
       });
 
       const refreshToken = this.jwtService.sign(
-        { _id: user._id },
+        { _id: user._id.toString() },
         {
           secret: process.env.JWT_REFRESH_SECRET,
-          expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME,
-        }
+          expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME || '7d',
+        },
       );
-
-      console.log(`[login] Tokens generated for User ${user._id}:`);
-      console.log(`  - Access Token: ${accessToken.substring(0, 20)}...`);
-      console.log(`  - Refresh Token: ${refreshToken.substring(0, 20)}...`);
-
-      const decodedToken = this.jwtService.decode(accessToken) as { exp: number };
-      const expiresAt = decodedToken.exp;
-
-      console.log(`[login] Login successful for User ${user._id}. Token expires at ${new Date(expiresAt * 1000)}`);
 
       await this.userService.saveRefreshToken(user._id.toString(), refreshToken);
 
-      return {
-        success: true,
-        ...user.toObject(),
-        accessToken,
-        refreshToken,
-      };
-    } catch (err) {
-      throw new BadRequestException(err.message || 'Login failed');
-    }
-  }
-
-
-  async validateToken(token: string): Promise<UserDocument> {
-    try {
-      console.log(`[validateToken] Validating token: ${token.substring(0, 20)}...`);
-
-      const payload = this.jwtService.verify(token, {
-        secret: process.env.JWT_SECRET,
+      console.log('[AuthService][login] Login successful:', {
+        userId: user._id,
+        email: user.email,
+        role: user.role,
+        accessToken: accessToken.substring(0, 20) + '...',
       });
 
-      console.log(`[validateToken] Token decoded successfully:`, payload);
-
-      const user = await this.userService.findById(payload._id);
-
-      if (!user) {
-        console.error('[validateToken] User not found for token:', token);
-        throw new UnauthorizedException('Invalid token');
-      }
-
-      return user;
-    } catch (e) {
-      console.error('[validateToken] Token validation failed:', e.message);
-      throw new UnauthorizedException('Invalid or expired token');
-    }
-  }
-
-  async refreshToken(refreshToken: string): Promise<{
-    accessToken: string;
-    expiresAt: number;
-  }> {
-    try {
-      console.log(`[refreshToken] Refreshing token: ${refreshToken.substring(0, 20)}...`);
-
-      const payload = this.jwtService.verify(refreshToken, {
-        secret: process.env.JWT_REFRESH_SECRET,
-      });
-
-      console.log('[refreshToken] Refresh token verified:', payload);
-
-      const user = await this.userService.findById(payload._id);
-
-      if (!user || user.refreshToken !== refreshToken) {
-        console.warn(`[refreshToken] Invalid refresh token for user ${payload._id}`);
-        throw new UnauthorizedException('Invalid refresh token');
-      }
-
-      const newAccessToken = this.jwtService.sign(
-        { _id: user._id, isAdmin: user.isAdmin },
-        {
-          secret: process.env.JWT_SECRET,
-          expiresIn: process.env.JWT_ACCESS_EXPIRATION_TIME,
-        }
-      );
-
-      const decodedToken = this.jwtService.decode(newAccessToken) as { exp: number };
-      const expiresAt = decodedToken.exp;
-
-      console.log(`[refreshToken] New access token generated for User ${user._id}. Expires at: ${new Date(expiresAt * 1000)}`);
-
-      return { accessToken: newAccessToken, expiresAt };
-    } catch (e) {
-      console.error('[refreshToken] Token refresh failed:', e.message);
-      throw new UnauthorizedException('Failed to refresh token');
-    }
-  }
-
-
-  async logout(token: string) {
-    if (!token || typeof token !== 'string') {
-      throw new UnauthorizedException('Invalid token format');
-    }
-
-    console.log(`[logout] Token received: ${token}`);
-
-    const user = await this.validateToken(token); // Check if token is valid
-    if (!user) {
-      throw new UnauthorizedException('Invalid or expired token');
-    }
-
-    await this.userService.removeRefreshToken(user._id.toString());
-    return { message: 'Logout successful' };
-  }
-
-  async sendPasswordResetEmail(payload: ForgotPasswordDto) {
-    await this.userService.checkUserExistByEmail(payload.email);
-
-    await this.otpService.sendOTP({
-      ...payload,
-      type: OtpTypeEnum.RESET_PASSWORD,
-    });
-  }
-
-  async resetPassword(payload: ResetPasswordDto) {
-    const { email, password, confirmPassword, code } = payload;
-
-    if (password !== confirmPassword) {
-      throw new ConflictException('Passwords do not match');
-    }
-
-    await this.otpService.verifyOTP({
-      email,
-      code,
-      type: OtpTypeEnum.RESET_PASSWORD,
-    });
-
-    const hashedPassword = await BaseHelper.hashData(password);
-
-    await this.userService.updateUserByEmail(email, {
-      password: hashedPassword,
-    });
-  }
-
-  async verifyEmail(payload: VerifyEmailDto) {
-    const { code, email } = payload;
-
-    const user: UserDocument = await this.userService.getUserByEmail(email);
-
-    if (!user) {
-      throw new BadRequestException('Invalid Email');
-    }
-
-    if (user.emailVerified) {
-      throw new UnprocessableEntityException('Email already verified');
-    }
-
-    await this.otpService.verifyOTP({
-      code,
-      email,
-      type: OtpTypeEnum.VERIFY_EMAIL,
-    });
-
-    await this.userService.updateUserByEmail(email, {
-      emailVerified: true,
-      //wallet: user.wallet + 100,
-    });
-  }
-
-  async getUserByAccessToken(accessToken: string) {
-    try {
-      const user = await this.validateToken(accessToken);
       return {
         success: true,
         user: {
           _id: user._id,
           email: user.email,
           phone: user.phone,
-          isAdmin: user.isAdmin,
+          stores: user.stores,
+          emailVerified: user.emailVerified,
+          role: user.role,
+        },
+        accessToken,
+        refreshToken,
+      };
+    } catch (error) {
+      console.error('[AuthService][login] Login error:', error);
+      throw new BadRequestException(error.message || 'Login failed');
+    }
+  }
+
+  async register(payload: CreateUserDto) {
+    try {
+      console.log('[AuthService][register] Registering user:', { email: payload.email });
+      const user = await this.userService.createUser(payload);
+      console.log('[AuthService][register] User created:', { userId: user.customer._id, email: user.email });
+
+      await this.otpService.sendOTP({
+        email: user.email,
+        type: OtpTypeEnum.VERIFY_EMAIL,
+        phone: user.phone,
+      });
+
+      return {
+        success: true,
+        user: {
+          _id: user.customer._id,
+          email: user.email,
+          phone: user.phone,
+          stores: user.customer.stores,
+          emailVerified: user.customer.emailVerified,
+          role: user.customer.role,
+        },
+        accessToken: user.accessToken,
+        refreshToken: user.refreshToken,
+      };
+    } catch (error) {
+      console.error('[AuthService][register] Registration error:', error);
+      throw new BadRequestException(error.message || 'Registration failed');
+    }
+  }
+
+  async validateToken(token: string): Promise<UserDocument> {
+    try {
+      console.log('[AuthService][validateToken] Validating token:', token.substring(0, 20) + '...');
+
+      const payload = this.jwtService.verify(token, {
+        secret: process.env.JWT_SECRET,
+      }) as payload;
+
+      const user = await this.userService.findById(payload._id);
+      if (!user) {
+        console.error('[AuthService][validateToken] User not found:', { userId: payload._id });
+        throw new UnauthorizedException('Invalid token: User not found');
+      }
+
+      console.log('[AuthService][validateToken] Token validated:', { userId: user._id, email: user.email });
+      return user;
+    } catch (error) {
+      console.error('[AuthService][validateToken] Token validation failed:', error);
+      throw new UnauthorizedException('Invalid or expired token');
+    }
+  }
+
+  async refreshToken(refreshToken: string): Promise<{ accessToken: string; expiresAt: number }> {
+    try {
+      console.log('[AuthService][refreshToken] Refreshing token:', refreshToken.substring(0, 20) + '...');
+
+      const payload = this.jwtService.verify(refreshToken, {
+        secret: process.env.JWT_REFRESH_SECRET,
+      }) as payload;
+
+      const user = await this.userService.findById(payload._id);
+      if (!user || user.refreshToken !== refreshToken) {
+        console.error('[AuthService][refreshToken] Invalid refresh token:', { userId: payload._id });
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      const newAccessToken = this.jwtService.sign(
+        { _id: user._id.toString(), email: user.email, role: user.role || [] },
+        {
+          secret: process.env.JWT_SECRET,
+          expiresIn: process.env.JWT_EXPIRATION_TIME || '15m',
+        },
+      );
+
+      const decodedToken = this.jwtService.decode(newAccessToken) as { exp: number };
+      const expiresAt = decodedToken.exp;
+
+      console.log('[AuthService][refreshToken] New access token generated:', {
+        userId: user._id,
+        expiresAt: new Date(expiresAt * 1000),
+      });
+
+      return { accessToken: newAccessToken, expiresAt };
+    } catch (error) {
+      console.error('[AuthService][refreshToken] Refresh token error:', error);
+      throw new UnauthorizedException('Failed to refresh token');
+    }
+  }
+
+  async logout(token: string) {
+    try {
+      console.log('[AuthService][logout] Logging out with token:', token.substring(0, 20) + '...');
+
+      const user = await this.validateToken(token);
+      await this.userService.removeRefreshToken(user._id.toString());
+
+      console.log('[AuthService][logout] Logout successful:', { userId: user._id });
+      return { message: 'Logout successful' };
+    } catch (error) {
+      console.error('[AuthService][logout] Logout error:', error);
+      throw new UnauthorizedException('Invalid or expired token');
+    }
+  }
+
+  async sendPasswordResetEmail(payload: ForgotPasswordDto) {
+    try {
+      await this.userService.checkUserExistByEmail(payload.email);
+      await this.otpService.sendOTP({
+        ...payload,
+        type: OtpTypeEnum.RESET_PASSWORD,
+      });
+      console.log('[AuthService][sendPasswordResetEmail] Password reset OTP sent:', { email: payload.email });
+    } catch (error) {
+      console.error('[AuthService][sendPasswordResetEmail] Error:', error);
+      throw new BadRequestException(error.message || 'Failed to send password reset email');
+    }
+  }
+
+  async resetPassword(payload: ResetPasswordDto) {
+    try {
+      const { email, password, confirmPassword, code } = payload;
+
+      if (password !== confirmPassword) {
+        console.error('[AuthService][resetPassword] Passwords do not match:', { email });
+        throw new ConflictException('Passwords do not match');
+      }
+
+      await this.otpService.verifyOTP({
+        email,
+        code,
+        type: OtpTypeEnum.RESET_PASSWORD,
+      });
+
+      const hashedPassword = await BaseHelper.hashData(password);
+      await this.userService.updateUserByEmail(email, {
+        password: hashedPassword,
+      });
+
+      console.log('[AuthService][resetPassword] Password reset successful:', { email });
+      return { message: 'Password reset successful' };
+    } catch (error) {
+      console.error('[AuthService][resetPassword] Error:', error);
+      throw new BadRequestException(error.message || 'Failed to reset password');
+    }
+  }
+
+  async verifyEmail(payload: VerifyEmailDto) {
+    try {
+      const { code, email } = payload;
+
+      const user = await this.userService.getUserByEmail(email);
+      if (!user) {
+        console.error('[AuthService][verifyEmail] User not found:', { email });
+        throw new BadRequestException('Invalid email');
+      }
+
+      if (user.emailVerified) {
+        console.warn('[AuthService][verifyEmail] Email already verified:', { email });
+        throw new UnprocessableEntityException('Email already verified');
+      }
+
+      await this.otpService.verifyOTP({
+        code,
+        email,
+        type: OtpTypeEnum.VERIFY_EMAIL,
+      });
+
+      await this.userService.updateUserByEmail(email, {
+        emailVerified: true,
+      });
+
+      console.log('[AuthService][verifyEmail] Email verified:', { email });
+      return { message: 'Email verified successfully' };
+    } catch (error) {
+      console.error('[AuthService][verifyEmail] Error:', error);
+      throw new BadRequestException(error.message || 'Failed to verify email');
+    }
+  }
+
+  async getUserByAccessToken(accessToken: string) {
+    try {
+      console.log('[AuthService][getUserByAccessToken] Fetching user with token:', accessToken.substring(0, 20) + '...');
+
+      const user = await this.validateToken(accessToken);
+      if (!user) {
+        console.error('[AuthService][getUserByAccessToken] User not found for token');
+        throw new UnauthorizedException('Invalid or expired token');
+      }
+
+      console.log('[AuthService][getUserByAccessToken] User fetched:', { userId: user._id, email: user.email });
+
+      return {
+        success: true,
+        user: {
+          _id: user._id,
+          email: user.email,
+          phone: user.phone,
+          stores: user.stores,
+          emailVerified: user.emailVerified,
+          role: user.role,
         },
       };
     } catch (error) {
+      console.error('[AuthService][getUserByAccessToken] Error:', error);
       throw new UnauthorizedException('Invalid or expired token');
     }
   }

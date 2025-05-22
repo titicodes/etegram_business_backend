@@ -1,61 +1,63 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Store, StoreDocument } from './schema/store.schema';
+import { User, UserDocument } from '../user/schema/user.schema';
+import { UserRoleEnum } from '../../common/enums/user.enum';
 import { CreateStoreDto } from './dto/create-store.dto';
-import { UserService } from '../user/user.service';
-import { UpdateStoreDto } from './dto/update-store.dto';
 
 @Injectable()
 export class StoreService {
+  private readonly logger = new Logger(StoreService.name);
+
   constructor(
-    @InjectModel(Store.name) private storeModel: Model<StoreDocument>,
-    private userService: UserService,
+    @InjectModel(Store.name) private readonly storeModel: Model<StoreDocument>,
   ) { }
 
-  async create(createStoreDto: CreateStoreDto, ownerId: string): Promise<Store> {
-    const user = await this.userService.findOne({ _id: ownerId });
+  async createStore(dto: CreateStoreDto, user: UserDocument): Promise<{ success: boolean; data: Store; message: string }> {
+    this.logger.log(`Creating store for user=${user._id}`);
 
-    if (!user) {
-      throw new NotFoundException('User not found');
+    try {
+      const existingStore = await this.storeModel
+        .findOne({ name: dto.name, owner: user._id })
+        .exec();
+      if (existingStore) {
+        throw new ConflictException(`Store with name ${dto.name} already exists for this user`);
+      }
+
+      const [newStore] = await this.storeModel.create([
+        {
+          ...dto,
+          owner: user._id,
+          createdAt: new Date(),
+        },
+      ]);
+
+      const fullStore = await this.storeModel.findById(newStore._id).lean().exec();
+      this.logger.log(`Created store id=${newStore._id}`);
+      return {
+        success: true,
+        data: fullStore,
+        message: 'Store created successfully',
+      };
+    } catch (error) {
+      this.logger.error(`Failed to create store: ${error.message}`, error.stack);
+      throw error instanceof ConflictException
+        ? error
+        : new InternalServerErrorException('Failed to create store');
     }
-
-    if (user.store) {
-      throw new BadRequestException('User already has a store');
-    }
-
-    const createdStore = new this.storeModel({
-      ...createStoreDto,
-      owner: ownerId,
-    });
-
-    const store = await createdStore.save();
-
-    user.store = store._id;
-    await user.save();
-
-    return store;
   }
 
-  async findById(id: string): Promise<Store> {
-    const store = await this.storeModel.findById(id).exec();
-    if (!store) {
-      throw new NotFoundException('Store not found');
+  async findUserStores(user: UserDocument): Promise<Store[]> {
+    this.logger.log(`Fetching stores for user=${user._id}`);
+
+    try {
+      const stores = await this.storeModel.find({ owner: user._id }).exec();
+      this.logger.log(`Found ${stores.length} stores`);
+      return stores;
+    } catch (error) {
+      this.logger.error(`Failed to fetch stores: ${error.message}`, error.stack);
+      throw new InternalServerErrorException('Failed to fetch stores');
     }
-    return store;
-  }
-
-  async findByOwner(ownerId: string): Promise<Store[]> {
-    return this.storeModel.find({ owner: ownerId }).exec();
-  }
-
-  async update(id: string, updateStoreDto: UpdateStoreDto): Promise<Store> {
-    const updatedStore = await this.storeModel.findByIdAndUpdate(id, updateStoreDto, { new: true }).exec();
-
-    if (!updatedStore) {
-      throw new NotFoundException('Store not found');
-    }
-
-    return updatedStore;
   }
 }

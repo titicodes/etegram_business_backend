@@ -11,6 +11,9 @@ export class ProductCategory extends Document { // Extend Document here
 
   @Prop({ required: true })
   name: string;
+
+  @Prop()
+  description?: string;
 }
 
 export const ProductCategorySchema =
