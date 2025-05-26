@@ -87,3 +87,4 @@ export const ProductSchema = SchemaFactory.createForClass(Product);
 
 // Ensure unique product code per store and owner
 ProductSchema.index({ code: 1, owner: 1, store: 1 }, { unique: true });
+

@@ -8,14 +8,16 @@ import { UserRoleEnum } from '../../common/enums/user.enum';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { FilterProductDto } from './dto/filter-product.dto';
+import { ProductHistory, ProductHistoryDocument } from '../product-history/schema/product-history.schema';
 
 @Injectable()
 export class ProductService {
   constructor(
     @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
+    @InjectModel(ProductHistory.name) private readonly productHistoryModel: Model<ProductHistoryDocument>,
     @InjectModel(Store.name) private readonly storeModel: Model<StoreDocument>,
     private readonly categoryService: ProductCategoriesService,
-  ) { }
+  ) {}
 
   async addProduct(createProductDto: CreateProductDto, ownerId: string, storeId: string, userRole: UserRoleEnum[]): Promise<ProductDocument> {
     try {
@@ -88,6 +90,16 @@ export class ProductService {
       // Update store's products array
       await this.storeModel.updateOne({ _id: store._id }, { $push: { products: newProduct._id } }).exec();
 
+      // Log history for initial stock
+      await this.createProductHistory({
+        type: 'restock',
+        quantity: newProduct.quantity,
+        product: new Types.ObjectId(newProduct._id.toString()),
+        store: new Types.ObjectId(storeId), // Convert storeId to ObjectId
+        userId: new Types.ObjectId(ownerId), // Convert ownerId to ObjectId
+        notes: 'Initial product creation',
+      });
+
       console.log('[ProductService][addProduct] Product added successfully:', {
         productId: newProduct._id,
         storeId,
@@ -98,6 +110,86 @@ export class ProductService {
     } catch (error) {
       console.error('[ProductService][addProduct] Error:', error);
       throw new BadRequestException(error.message || 'Failed to add product');
+    }
+  }
+
+  async createProductHistory(history: {
+    type: string;
+    quantity: number;
+    product: Types.ObjectId;
+    store: Types.ObjectId;
+    userId: Types.ObjectId;
+    notes?: string;
+  }): Promise<ProductHistoryDocument> {
+    try {
+      console.log('[ProductService][createProductHistory] Creating product history:', { history });
+
+      const newHistory = new this.productHistoryModel({
+        ...history,
+        createdAt: new Date(),
+      });
+
+      await newHistory.save();
+      console.log('[ProductService][createProductHistory] History created:', { historyId: newHistory._id });
+      return newHistory;
+    } catch (error) {
+      console.error('[ProductService][createProductHistory] Error:', error);
+      throw new BadRequestException(error.message || 'Failed to create product history');
+    }
+  }
+
+  async getProductHistory(
+    productId: string,
+    storeId: string,
+    ownerId: string,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{ data: ProductHistoryDocument[]; total: number; page: number; totalPages: number }> {
+    try {
+      console.log('[ProductService][getProductHistory] Fetching product history:', {
+        productId,
+        storeId,
+        ownerId,
+        page,
+        limit,
+      });
+
+      if (!Types.ObjectId.isValid(productId) || !Types.ObjectId.isValid(storeId)) {
+        console.error('[ProductService][getProductHistory] Invalid input:', { productId, storeId });
+        throw new BadRequestException('Invalid productId or storeId');
+      }
+
+      // Validate product exists and belongs to store
+      const product = await this.productModel
+        .findOne({ _id: productId, store: storeId, createdBy: ownerId })
+        .exec();
+      if (!product) {
+        console.error('[ProductService][getProductHistory] Product not found:', { productId, storeId, ownerId });
+        throw new NotFoundException('Product not found or you do not have permission');
+      }
+
+      const skip = (page - 1) * limit;
+
+      const history = await this.productHistoryModel
+        .find({ product: productId, store: storeId })
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 })
+        .exec();
+
+      const total = await this.productHistoryModel.countDocuments({ product: productId, store: storeId });
+
+      console.log('[ProductService][getProductHistory] History fetched:', { total, page, limit });
+
+      return {
+        data: history,
+        total,
+        page,
+        totalPages: Math.ceil(total / limit),
+      };
+    } catch (error) {
+      console.error('[ProductService][getProductHistory] Error:', error);
+      throw new BadRequestException(error.message || 'Failed to fetch product history');
     }
   }
 
@@ -150,7 +242,10 @@ export class ProductService {
 
       return {
         data: products,
-        metadata: { total, page, limit, totalPages: Math.ceil(total / limit) },
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
       };
     } catch (error) {
       console.error('[ProductService][getFilteredProducts] Error:', error);
@@ -235,9 +330,21 @@ export class ProductService {
         existingProduct.category = updateProductDto.category;
       }
 
-      Object.assign(existingProduct, updateProductDto);
-      await existingProduct.save();
+      // Log quantity change as history
+      if (updateProductDto.quantity !== undefined && updateProductDto.quantity !== existingProduct.quantity) {
+        await this.createProductHistory({
+          type: 'adjustment',
+          quantity: updateProductDto.quantity - existingProduct.quantity,
+          product: new Types.ObjectId(existingProduct._id.toString()),
+          store: new Types.ObjectId(storeId), // Convert storeId to ObjectId
+          userId: new Types.ObjectId(ownerId), // Convert ownerId to ObjectId
+          notes: 'Quantity updated via product edit',
+        });
+      }
 
+      Object.assign(existingProduct, updateProductDto);
+      existingProduct.updatedAt = new Date();
+      await existingProduct.save();
 
       console.log('[ProductService][updateProduct] Product updated:', { productId: id });
       return existingProduct;
@@ -270,6 +377,9 @@ export class ProductService {
 
       // Remove product from store's products array
       await this.storeModel.updateOne({ _id: storeId }, { $pull: { products: id } }).exec();
+
+      // Delete related history
+      await this.productHistoryModel.deleteMany({ product: id, store: storeId }).exec();
 
       console.log('[ProductService][deleteProduct] Product deleted:', { productId: id });
       return { deleted: true };
@@ -311,6 +421,16 @@ export class ProductService {
       product.quantity += additionalQuantity;
       product.updatedAt = new Date();
       await product.save();
+
+      // Log restock history
+      await this.createProductHistory({
+        type: 'restock',
+        quantity: additionalQuantity,
+        product: new Types.ObjectId(product._id.toString()),
+        store: new Types.ObjectId(storeId), // Convert storeId to ObjectId
+        userId: new Types.ObjectId(ownerId), // Convert ownerId to ObjectId
+        notes: 'Product restocked',
+      });
 
       console.log('[ProductService][supplyProduct] Product supplied:', { productId: id, newQuantity: product.quantity });
       return product;
@@ -411,13 +531,11 @@ export class ProductService {
 
       return {
         data: products,
-        metadata: {
-          total,
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit),
-          expiryWindow: `${days} days`,
-        },
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        expiryWindow: `${days} days`,
       };
     } catch (error) {
       console.error('[ProductService][getExpiringProducts] Error:', error);
@@ -467,13 +585,11 @@ export class ProductService {
 
       return {
         data: products,
-        metadata: {
-          total,
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit),
-          stockThreshold: threshold,
-        },
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        stockThreshold: threshold,
       };
     } catch (error) {
       console.error('[ProductService][getLowStockProducts] Error:', error);
@@ -582,8 +698,8 @@ export class ProductService {
       const totalStockResult = await this.getTotalStock(ownerId, storeId);
 
       console.log('[ProductService][getExpiringAndLowStockProducts] Data fetched:', {
-        expiringCount: expiring.metadata.total,
-        lowStockCount: lowStock.metadata.total,
+        expiringCount: expiring.total,
+        lowStockCount: lowStock.total,
         totalQuantity: totalStockResult.totalQuantity,
       });
 

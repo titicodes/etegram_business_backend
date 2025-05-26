@@ -12,6 +12,7 @@ import {
 import { ProductCategoryModule } from '../product-category/product-category.module';
 import { Store, StoreSchema } from '../store/schema/store.schema';
 import { StoreModule } from '../store/store.module';
+import { ProductHistoryModule } from '../product-history/product-history.module';
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -20,7 +21,8 @@ import { StoreModule } from '../store/store.module';
       { name:'Store', schema: StoreSchema }
     ]),
     ProductCategoryModule,
-    StoreModule
+    StoreModule,
+     ProductHistoryModule,
   ],
   controllers: [ProductController],
   providers: [

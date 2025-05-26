@@ -9,10 +9,9 @@ import { LowStockProductsQueryDto } from './dto/low-stock-products-query.dto';
 import { SupplyProductDto } from './dto/supply-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 
-
 @Controller('products')
 export class ProductController {
-  constructor(private readonly productService: ProductService) { }
+  constructor(private readonly productService: ProductService) {}
 
   @UseGuards(JwtAuthGuard)
   @Post('add')
@@ -144,5 +143,17 @@ export class ProductController {
       query.page || 1,
       query.limit || 10,
     );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/history/:storeId')
+  async getProductHistory(
+    @Param('id') productId: string,
+    @Param('storeId') storeId: string,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @Request() req,
+  ) {
+    return this.productService.getProductHistory(productId, storeId, req.user._id, page, limit);
   }
 }

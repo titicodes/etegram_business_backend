@@ -1,46 +1,69 @@
-import { Controller, Post, Body, Get, Param, Put, Delete } from '@nestjs/common';
-import { SupplyDto } from './dto/supply.dto';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+  Req,
+  UseGuards,
+  ParseUUIDPipe,
+  BadRequestException,
+} from '@nestjs/common';
+import { CreateSupplyDto } from './dto/supply.dto';
 import { UpdateSupplierDto } from './dto/update-supply.dto';
-import { ApiTags } from '@nestjs/swagger';
+import { UserDocument } from '../user/schema/user.schema';
+import { Request } from 'express';
+import { JwtAuthGuard } from '../auth/guard/jwtGuard';
 import { SupplierService } from './supply.service';
 
-@ApiTags('suppliers')
 @Controller('suppliers')
+@UseGuards(JwtAuthGuard)
 export class SupplierController {
-    constructor(private readonly supplierService: SupplierService) { }
+  constructor(private readonly supplierService: SupplierService) {}
 
-    @Post()
-    async createSupplier(@Body() createSupplierDto: SupplyDto) {
-        const result = await this.supplierService.createSupplier(createSupplierDto);
-    
-        console.log('Controller Result:', result); // Debugging
-    
-        return {
-            success: result.success,
-            data: result.data, // Ensure this includes the full supplier data
-            message: result.message,
-        };
-    }
-    
+  // POST /suppliers
+  @Post()
+  async createSupplier(@Body() dto: CreateSupplyDto, @Req() req) {
+    const user = req.user as UserDocument;
+    return await this.supplierService.createSupplier(dto, user);
+  }
 
+  // PUT /suppliers/:id
+  @Put(':id')
+  async updateSupplier(
+    @Param('id') id: string,
+    @Body() dto: UpdateSupplierDto,
+    @Req() req,
+  ) {
+    const user = req.user as UserDocument;
+    return await this.supplierService.updateSupplier(id, dto, user);
+  }
 
-    @Put(':id')
-    async updateSupplier(@Param('id') id: string, @Body() updateSupplierDto: UpdateSupplierDto) {
-        return this.supplierService.updateSupplier(id, updateSupplierDto);
-    }
+  // GET /suppliers/:id
+  @Get(':id')
+  async getSupplierById(@Param('id') id: string, @Req() req) {
+    const user = req.user as UserDocument;
+    return await this.supplierService.findOne(user, { id });
+  }
 
-    @Get(':id')
-    async findOne(@Param('id') id: string) {
-        return this.supplierService.findOne({ _id: id });
-    }
+  // GET /suppliers/email?email=abc@example.com
+  @Get('email')
+  async getSupplierByEmail(@Query('email') email: string, @Req() req) {
+    const user = req.user as UserDocument;
+    if (!email) throw new BadRequestException('Email is required');
+    return await this.supplierService.findOne(user, { email });
+  }
 
-    @Get()
-    async findAll(@Param('keyword') keyword?: string) {
-        return this.supplierService.findAll(keyword);
-    }
-
-    // @Delete(':id')
-    // async remove(@Param('id') id: string) {
-    //     return this.supplierService.remove(id);
-    // }
+  // GET /suppliers?storeId=abc&keyword=john
+  @Get()
+  async getAllSuppliers(
+    @Query('storeId') storeId: string,
+    @Query('keyword') keyword: string,
+    @Req() req,
+  ) {
+    const user = req.user as UserDocument;
+    return await this.supplierService.findAll(user, storeId, keyword);
+  }
 }
