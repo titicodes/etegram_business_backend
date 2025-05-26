@@ -1,47 +1,50 @@
-import { Body, Controller, Get, Post, Put, Delete, Param, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Request, UseGuards } from '@nestjs/common';
 import { StoreService } from './store.service';
+import { JwtAuthGuard } from '../auth/guard/jwtGuard';
 import { CreateStoreDto } from './dto/create-store.dto';
 import { UpdateStoreDto } from './dto/update-store.dto';
-import { JwtAuthGuard } from '../auth/guard/jwtGuard';
-
 
 @Controller('stores')
 export class StoreController {
-  constructor(private readonly storeService: StoreService) {}
+  constructor(private readonly storeService: StoreService) { }
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  create(@Body() createStoreDto: CreateStoreDto, @Request() req) {
-    return this.storeService.create(createStoreDto, req.user._id);
+  create(@Body() createDto: CreateStoreDto, @Request() req: any) {
+    return this.storeService.create(createDto, req.user._id.toString());
   }
 
   @UseGuards(JwtAuthGuard)
   @Post(':parentStoreId/branches')
-  createBranch(@Body() createStoreDto: CreateStoreDto, @Param('parentStoreId') parentStoreId: string, @Request() req) {
-    return this.storeService.createBranch(createStoreDto, req.user._id, parentStoreId);
+  createBranch(
+    @Body() createDto: CreateStoreDto,
+    @Param('parentStoreId') parentStoreId: string,
+    @Request() req: any,
+  ) {
+    return this.storeService.createBranch(createDto, req.user._id.toString(), parentStoreId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  findByOwner(@Request() req) {
-    return this.storeService.findByOwner(req.user._id);
+  findByOwner(@Request() req: any) {
+    return this.storeService.findByOwner(req.user._id.toString());
   }
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  findById(@Param('id') id: string, @Request() req) {
-    return this.storeService.findById(id, req.user._id);
+  findById(@Param('id') id: string, @Request() req: any) {
+    return this.storeService.findById(id, req.user._id.toString());
   }
 
   @UseGuards(JwtAuthGuard)
   @Put(':id')
-  update(@Param('id') id: string, @Body() updateStoreDto: UpdateStoreDto, @Request() req) {
-    return this.storeService.update(id, updateStoreDto, req.user._id);
+  update(@Param('id') id: string, @Body() updateDto: UpdateStoreDto, @Request() req: any) {
+    return this.storeService.update(id, updateDto, req.user._id.toString());
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  delete(@Param('id') id: string, @Request() req) {
-    return this.storeService.delete(id, req.user._id);
+  delete(@Param('id') id: string, @Request() req: any) {
+    return this.storeService.delete(id, req.user._id.toString());
   }
 }

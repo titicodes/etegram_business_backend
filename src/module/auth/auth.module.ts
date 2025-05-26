@@ -8,19 +8,22 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { UserModule } from '../user/user.module';
+import { StoreModule } from '../store/store.module';
+import { StoreService } from '../store/store.service';
+import { Store, StoreSchema } from '../store/schema/store.schema';
 
 @Module({
-    imports: [
-      MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
-      UserModule,
-      PassportModule,
-      MailModule,
-      OtpModule,
-     
-    ],
-    controllers: [AuthController],
-    providers: [AuthService, JwtStrategy],
-    exports: [AuthService], // Export AuthService for WalletModule
-  })
-  export class AuthModule {}
-  
+  imports: [
+    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }, { name: Store.name, schema: StoreSchema }]),
+    UserModule,
+    PassportModule,
+    MailModule,
+    OtpModule,
+    StoreModule
+  ],
+  controllers: [AuthController],
+  providers: [AuthService, JwtStrategy, StoreService],
+  exports: [AuthService,], // Export AuthService for WalletModule
+})
+export class AuthModule { }
+

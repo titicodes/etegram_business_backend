@@ -94,9 +94,9 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post('stores')
-  async createStore(@Body() createStoreDto: CreateStoreDto, @Request() req) {
-    return this.storeService.createStore(createStoreDto, req.user);
+  @Post('store') // or '/register' or other route
+  createStore(@Body() createStoreDto: CreateStoreDto, @Request() req: any) {
+    return this.storeService.create(createStoreDto, req.user._id.toString());
   }
 
   @Post('forgot-password')

@@ -1,38 +1,39 @@
-// payment-method/payment-method.controller.ts
-import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, Request, UseGuards } from '@nestjs/common';
 import { PaymentMethodService } from './payment-method.service';
-import { GetUser } from '../auth/get-user.decorator';
-import { JwtAuthGuard } from '../auth/guard/jwtGuard';
-import { User } from '../user/schema/user.schema';
 import { CreatePaymentMethodDto, UpdatePaymentMethodDto } from './dto/payment-method.dto';
+import { JwtAuthGuard } from '../auth/guard/jwtGuard';
 
 @Controller('payment-methods')
-@UseGuards(JwtAuthGuard)
 export class PaymentMethodController {
     constructor(private readonly paymentMethodService: PaymentMethodService) { }
 
+    @UseGuards(JwtAuthGuard)
     @Post()
-    async create(@Body() createPaymentMethodDto: CreatePaymentMethodDto, @GetUser() user: User) {
-        return this.paymentMethodService.create(createPaymentMethodDto, user);
+    create(@Body() createDto: CreatePaymentMethodDto, @Request() req: any) {
+        return this.paymentMethodService.create(createDto, req.user);
     }
 
+    @UseGuards(JwtAuthGuard)
     @Get()
-    async findAll(@GetUser() user: User) {
-        return this.paymentMethodService.findAll(user);
+    findAll(@Query('storeId') storeId: string, @Request() req: any) {
+        return this.paymentMethodService.findAll(req.user, storeId);
     }
 
+    @UseGuards(JwtAuthGuard)
     @Get(':id')
-    async findOne(@Param('id') id: string) {
-        return this.paymentMethodService.findOne(id);
+    findOne(@Param('id') id: string, @Request() req: any) {
+        return this.paymentMethodService.findOne(id, req.user);
     }
 
+    @UseGuards(JwtAuthGuard)
     @Put(':id')
-    async update(@Param('id') id: string, @Body() updatePaymentMethodDto: UpdatePaymentMethodDto) {
-        return this.paymentMethodService.update(id, updatePaymentMethodDto);
+    update(@Param('id') id: string, @Body() updateDto: UpdatePaymentMethodDto, @Request() req: any) {
+        return this.paymentMethodService.update(id, updateDto, req.user);
     }
 
+    @UseGuards(JwtAuthGuard)
     @Delete(':id')
-    async remove(@Param('id') id: string) {
-        return this.paymentMethodService.remove(id);
+    remove(@Param('id') id: string, @Request() req: any) {
+        return this.paymentMethodService.remove(id, req.user);
     }
 }

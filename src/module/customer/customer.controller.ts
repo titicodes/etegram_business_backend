@@ -1,35 +1,44 @@
-import { Body, Controller, Get, Param, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, Request, UseGuards } from '@nestjs/common';
 import { CustomerService } from './customer.service';
-import { CustomerDto } from './dto/customer.dto';
+import { JwtAuthGuard } from '../auth/guard/jwtGuard';
+import { CreateCustomerDto } from './dto/customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 
-@Controller('customer')
+@Controller('customers')
 export class CustomerController {
     constructor(private readonly customerService: CustomerService) { }
 
+    @UseGuards(JwtAuthGuard)
     @Post()
-    async createCustomer(@Body() dto: CustomerDto) {
-        const result = await this.customerService.createCustomer(dto);
-        console.log("Controller Result", result);
-        return {
-            success: result.success,
-            data: result.data,
-            message: result.message
-        }
+    create(@Body() createDto: CreateCustomerDto, @Request() req: any) {
+        return this.customerService.createCustomer(createDto, req.user);
     }
 
-    @Put(':id')
-    async updateSupplier(@Param('id') id: string, @Body() updateSupplierDto: UpdateCustomerDto) {
-        return this.customerService.updateCustomer(id, updateSupplierDto);
-    }
-
-    @Get(':id')
-    async findOne(@Param('id') id: string) {
-        return this.customerService.findOne({ _id: id });
-    }
-
+    @UseGuards(JwtAuthGuard)
     @Get()
-    async findAll(@Param('keyword') keyword?: string) {
-        return this.customerService.findAll(keyword);
+    findAll(
+        @Query('storeId') storeId: string,
+        @Query('keyword') keyword: string,
+        @Request() req: any,
+    ) {
+        return this.customerService.findAll(req.user, storeId, keyword);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Get(':id')
+    findOne(@Param('id') id: string, @Request() req: any) {
+        return this.customerService.findOne(req.user, { id });
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Put(':id')
+    update(@Param('id') id: string, @Body() updateDto: UpdateCustomerDto, @Request() req: any) {
+        return this.customerService.updateCustomer(id, updateDto, req.user);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Delete(':id')
+    remove(@Param('id') id: string, @Request() req: any) {
+        return this.customerService.remove(id, req.user);
     }
 }

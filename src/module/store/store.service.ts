@@ -2,9 +2,8 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException, 
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Store, StoreDocument } from './schema/store.schema';
-import { User, UserDocument } from '../user/schema/user.schema';
-import { UserRoleEnum } from '../../common/enums/user.enum';
 import { CreateStoreDto } from './dto/create-store.dto';
+import { UpdateStoreDto } from './dto/update-store.dto';
 
 @Injectable()
 export class StoreService {
@@ -12,14 +11,14 @@ export class StoreService {
 
   constructor(
     @InjectModel(Store.name) private readonly storeModel: Model<StoreDocument>,
-  ) { }
+  ) {}
 
-  async createStore(dto: CreateStoreDto, user: UserDocument): Promise<{ success: boolean; data: Store; message: string }> {
-    this.logger.log(`Creating store for user=${user._id}`);
+  async create(dto: CreateStoreDto, ownerId: string): Promise<{ success: boolean; data: Store; message: string }> {
+    this.logger.log(`Creating store for user=${ownerId}`);
 
     try {
       const existingStore = await this.storeModel
-        .findOne({ name: dto.name, owner: user._id })
+        .findOne({ name: dto.name, owner: ownerId })
         .exec();
       if (existingStore) {
         throw new ConflictException(`Store with name ${dto.name} already exists for this user`);
@@ -28,7 +27,7 @@ export class StoreService {
       const [newStore] = await this.storeModel.create([
         {
           ...dto,
-          owner: user._id,
+          owner: ownerId,
           createdAt: new Date(),
         },
       ]);
@@ -48,16 +47,122 @@ export class StoreService {
     }
   }
 
-  async findUserStores(user: UserDocument): Promise<Store[]> {
-    this.logger.log(`Fetching stores for user=${user._id}`);
+  async createBranch(dto: CreateStoreDto, ownerId: string, parentStoreId: string): Promise<{ success: boolean; data: Store; message: string }> {
+    this.logger.log(`Creating branch for parentStore=${parentStoreId}, user=${ownerId}`);
 
     try {
-      const stores = await this.storeModel.find({ owner: user._id }).exec();
+      const parentStore = await this.storeModel.findOne({ _id: parentStoreId, owner: ownerId }).exec();
+      if (!parentStore) {
+        throw new NotFoundException('Parent store not found');
+      }
+
+      const existingStore = await this.storeModel
+        .findOne({ name: dto.name, owner: ownerId })
+        .exec();
+      if (existingStore) {
+        throw new ConflictException(`Store with name ${dto.name} already exists for this user`);
+      }
+
+      const [newBranch] = await this.storeModel.create([
+        {
+          ...dto,
+          owner: ownerId,
+          parentStore: parentStoreId,
+          createdAt: new Date(),
+        },
+      ]);
+
+      const fullBranch = await this.storeModel.findById(newBranch._id).lean().exec();
+      this.logger.log(`Created branch id=${newBranch._id}`);
+      return {
+        success: true,
+        data: fullBranch,
+        message: 'Branch created successfully',
+      };
+    } catch (error) {
+      this.logger.error(`Failed to create branch: ${error.message}`, error.stack);
+      throw error instanceof ConflictException || error instanceof NotFoundException
+        ? error
+        : new InternalServerErrorException('Failed to create branch');
+    }
+  }
+
+  async findByOwner(ownerId: string): Promise<Store[]> {
+    this.logger.log(`Fetching stores for user=${ownerId}`);
+
+    try {
+      const stores = await this.storeModel.find({ owner: ownerId }).exec();
       this.logger.log(`Found ${stores.length} stores`);
       return stores;
     } catch (error) {
       this.logger.error(`Failed to fetch stores: ${error.message}`, error.stack);
       throw new InternalServerErrorException('Failed to fetch stores');
+    }
+  }
+
+  async findById(id: string, ownerId: string): Promise<Store | null> {
+    this.logger.log(`Fetching store id=${id} for user=${ownerId}`);
+
+    try {
+      const store = await this.storeModel.findOne({ _id: id, owner: ownerId }).exec();
+      if (!store) {
+        throw new NotFoundException('Store not found');
+      }
+      this.logger.log(`Found store id=${id}`);
+      return store;
+    } catch (error) {
+      this.logger.error(`Failed to fetch store: ${error.message}`, error.stack);
+      throw error instanceof NotFoundException
+        ? error
+        : new InternalServerErrorException('Failed to fetch store');
+    }
+  }
+
+  async update(id: string, dto: UpdateStoreDto, ownerId: string): Promise<Store> {
+    this.logger.log(`Updating store id=${id} for user=${ownerId}`);
+
+    try {
+      const store = await this.storeModel.findOne({ _id: id, owner: ownerId }).exec();
+      if (!store) {
+        throw new NotFoundException('Store not found');
+      }
+
+      const updatedStore = await this.storeModel.findByIdAndUpdate(
+        id,
+        { ...dto, updatedAt: new Date() },
+        { new: true },
+      ).exec();
+
+      if (!updatedStore) {
+        throw new NotFoundException('Failed to update store');
+      }
+
+      this.logger.log(`Updated store id=${id}`);
+      return updatedStore;
+    } catch (error) {
+      this.logger.error(`Failed to update store: ${error.message}`, error.stack);
+      throw error instanceof NotFoundException
+        ? error
+        : new InternalServerErrorException('Failed to update store');
+    }
+  }
+
+  async delete(id: string, ownerId: string): Promise<void> {
+    this.logger.log(`Deleting store id=${id} for user=${ownerId}`);
+
+    try {
+      const store = await this.storeModel.findOne({ _id: id, owner: ownerId }).exec();
+      if (!store) {
+        throw new NotFoundException('Store not found');
+      }
+
+      await this.storeModel.deleteOne({ _id: id }).exec();
+      this.logger.log(`Deleted store id=${id}`);
+    } catch (error) {
+      this.logger.error(`Failed to delete store: ${error.message}`, error.stack);
+      throw error instanceof NotFoundException
+        ? error
+        : new InternalServerErrorException('Failed to delete store');
     }
   }
 }

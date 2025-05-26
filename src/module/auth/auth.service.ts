@@ -97,20 +97,20 @@ export class AuthService {
     try {
       console.log('[AuthService][register] Registering user:', { email: payload.email });
       const user = await this.userService.createUser(payload);
-      console.log('[AuthService][register] User created:', { userId: user.customer._id, email: user.email });
+      console.log('[AuthService][register] User created:', { userId: user.customer._id, email: user.customer.email });
 
       await this.otpService.sendOTP({
-        email: user.email,
+        email: user.customer.email,
         type: OtpTypeEnum.VERIFY_EMAIL,
-        phone: user.phone,
+        phone: user.customer.phone,
       });
 
       return {
         success: true,
         user: {
           _id: user.customer._id,
-          email: user.email,
-          phone: user.phone,
+          email: user.customer.email,
+          phone: user.customer.phone,
           stores: user.customer.stores,
           emailVerified: user.customer.emailVerified,
           role: user.customer.role,
