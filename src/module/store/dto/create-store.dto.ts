@@ -1,6 +1,13 @@
-import { IsString, IsNotEmpty, IsOptional, IsEmail } from 'class-validator';
+import { Exclude } from 'class-transformer';
+import { IsString, IsNotEmpty, IsOptional, IsEmail, IsMongoId } from 'class-validator';
 
 export class CreateStoreDto {
+  @Exclude()
+  _id?: string;
+
+  @Exclude()
+  owner?: string;
+
   @IsString()
   @IsNotEmpty()
   name: string;
@@ -44,4 +51,8 @@ export class CreateStoreDto {
   @IsString()
   @IsOptional()
   area?: string;
+
+  @IsMongoId()
+  @IsOptional()
+  parentStore?: string;
 }

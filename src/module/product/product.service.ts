@@ -4,11 +4,11 @@ import { Model, Types } from 'mongoose';
 import { Product, ProductDocument } from './schema/product.schema';
 import { Store, StoreDocument } from '../store/schema/store.schema';
 import { ProductCategoriesService } from '../product-category/product-category.service';
-import { UserRoleEnum } from '../../common/enums/user.enum';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { FilterProductDto } from './dto/filter-product.dto';
 import { ProductHistory, ProductHistoryDocument } from '../product-history/schema/product-history.schema';
+import { UserRoleEnum } from 'src/common/enums/user.enum';
 
 @Injectable()
 export class ProductService {

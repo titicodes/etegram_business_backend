@@ -1,9 +1,10 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException, InternalServerErrorException, Logger } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Store, StoreDocument } from './schema/store.schema';
 import { CreateStoreDto } from './dto/create-store.dto';
 import { UpdateStoreDto } from './dto/update-store.dto';
+import { UserService } from '../user/user.service';
 
 @Injectable()
 export class StoreService {
@@ -11,10 +12,11 @@ export class StoreService {
 
   constructor(
     @InjectModel(Store.name) private readonly storeModel: Model<StoreDocument>,
-  ) {}
+    private readonly userService: UserService,
+  ) { }
 
   async create(dto: CreateStoreDto, ownerId: string): Promise<{ success: boolean; data: Store; message: string }> {
-    this.logger.log(`Creating store for user=${ownerId}`);
+    this.logger.log(`Creating store for user=${ownerId}, dto=${JSON.stringify(dto)}`);
 
     try {
       const existingStore = await this.storeModel
@@ -32,6 +34,8 @@ export class StoreService {
         },
       ]);
 
+      await this.userService.addStoreToUser(ownerId, newStore._id.toString());
+
       const fullStore = await this.storeModel.findById(newStore._id).lean().exec();
       this.logger.log(`Created store id=${newStore._id}`);
       return {
@@ -41,9 +45,10 @@ export class StoreService {
       };
     } catch (error) {
       this.logger.error(`Failed to create store: ${error.message}`, error.stack);
-      throw error instanceof ConflictException
-        ? error
-        : new InternalServerErrorException('Failed to create store');
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+      throw new BadRequestException(`Failed to create store: ${error.message}`);
     }
   }
 
@@ -72,6 +77,8 @@ export class StoreService {
         },
       ]);
 
+      await this.userService.addStoreToUser(ownerId, newBranch._id.toString());
+
       const fullBranch = await this.storeModel.findById(newBranch._id).lean().exec();
       this.logger.log(`Created branch id=${newBranch._id}`);
       return {
@@ -83,7 +90,7 @@ export class StoreService {
       this.logger.error(`Failed to create branch: ${error.message}`, error.stack);
       throw error instanceof ConflictException || error instanceof NotFoundException
         ? error
-        : new InternalServerErrorException('Failed to create branch');
+        : new BadRequestException('Failed to create branch');
     }
   }
 
@@ -96,7 +103,7 @@ export class StoreService {
       return stores;
     } catch (error) {
       this.logger.error(`Failed to fetch stores: ${error.message}`, error.stack);
-      throw new InternalServerErrorException('Failed to fetch stores');
+      throw new BadRequestException('Failed to fetch stores');
     }
   }
 
@@ -112,9 +119,7 @@ export class StoreService {
       return store;
     } catch (error) {
       this.logger.error(`Failed to fetch store: ${error.message}`, error.stack);
-      throw error instanceof NotFoundException
-        ? error
-        : new InternalServerErrorException('Failed to fetch store');
+      throw error;
     }
   }
 
@@ -141,9 +146,7 @@ export class StoreService {
       return updatedStore;
     } catch (error) {
       this.logger.error(`Failed to update store: ${error.message}`, error.stack);
-      throw error instanceof NotFoundException
-        ? error
-        : new InternalServerErrorException('Failed to update store');
+      throw error;
     }
   }
 
@@ -157,12 +160,11 @@ export class StoreService {
       }
 
       await this.storeModel.deleteOne({ _id: id }).exec();
+      await this.userService.removeStoreFromUser(ownerId, id);
       this.logger.log(`Deleted store id=${id}`);
     } catch (error) {
       this.logger.error(`Failed to delete store: ${error.message}`, error.stack);
-      throw error instanceof NotFoundException
-        ? error
-        : new InternalServerErrorException('Failed to delete store');
+      throw error;
     }
   }
 }

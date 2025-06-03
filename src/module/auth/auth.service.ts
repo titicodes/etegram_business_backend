@@ -50,7 +50,7 @@ export class AuthService {
       const tokenPayload: payload = {
         _id: user._id.toString(),
         email: user.email,
-        role: user.role || [], // Include role from user, default to empty array if undefined
+        role: user.role || [],
       };
       const accessToken = this.jwtService.sign(tokenPayload, {
         secret: process.env.JWT_SECRET,
@@ -79,7 +79,7 @@ export class AuthService {
         user: {
           _id: user._id,
           email: user.email,
-          phone: user.phone,
+          phoneNumber: user.phoneNumber,
           stores: user.stores,
           emailVerified: user.emailVerified,
           role: user.role,
@@ -102,7 +102,7 @@ export class AuthService {
       await this.otpService.sendOTP({
         email: user.customer.email,
         type: OtpTypeEnum.VERIFY_EMAIL,
-        phone: user.customer.phone,
+        phone: user.customer.phoneNumber,
       });
 
       return {
@@ -110,7 +110,7 @@ export class AuthService {
         user: {
           _id: user.customer._id,
           email: user.customer.email,
-          phone: user.customer.phone,
+          phoneNumber: user.customer.phoneNumber,
           stores: user.customer.stores,
           emailVerified: user.customer.emailVerified,
           role: user.customer.role,
@@ -290,7 +290,7 @@ export class AuthService {
         user: {
           _id: user._id,
           email: user.email,
-          phone: user.phone,
+          phoneNumber: user.phoneNumber,
           stores: user.stores,
           emailVerified: user.emailVerified,
           role: user.role,

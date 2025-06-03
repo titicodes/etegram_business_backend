@@ -8,10 +8,11 @@ import {
   IsNotEmpty,
   IsCurrency,
   IsEnum,
+  Matches,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
-import { UserRoleEnum } from 'src/common/constants/enums/user.enum';
+import { UserRoleEnum } from 'src/common/enums/user.enum';
 
 export class CreateUserDto {
   @ApiProperty({ description: 'The email of the user' })
@@ -22,12 +23,15 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   @Length(10, 11)
-  phone: string;
+  phoneNumber?: string;
 
   @ApiProperty({ description: 'The password of the user' })
+  @IsNotEmpty()
   @IsString()
-  @MinLength(4)
-  @MaxLength(20)
+  @MinLength(8)
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/, {
+    message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
+  })
   password: string;
 
   @ApiProperty({ description: 'The first name of the user' })
@@ -44,39 +48,40 @@ export class CreateUserDto {
 
   @ApiProperty({ description: 'The last name of the user' })
   @IsString()
-  businessName : string;
+  @IsOptional()
+  businessName: string;
 
 
   metadata?: { userId: string };
 
   @ApiProperty({ description: 'The country of the user' })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   country?: string;
 
   @ApiProperty({ description: 'The state of the user' })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   state?: string;
 
   @ApiProperty({ description: 'The currency of the user' })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
   currency?: string;
-  
+
   @ApiProperty({ description: 'The last area of the user' })
-  @IsString()
+  @IsOptional()
   area?: string;
 
   @ApiProperty({ description: 'The last city of the user' })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   city?: string;
 
   @ApiProperty({ description: 'The business type of the user', required: false })
   @IsOptional()
-  businessType?: string; 
+  businessType?: string;
 
   @IsEnum(UserRoleEnum, { each: true })
   @IsOptional()
