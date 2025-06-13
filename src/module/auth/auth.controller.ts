@@ -1,4 +1,11 @@
-import { Body, Controller, Get, Post, Request, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from '../user/dto/create-user.dto';
 import { StoreService } from '../store/store.service';
@@ -13,7 +20,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly storeService: StoreService,
-  ) {}
+  ) { }
 
   @Post('register')
   async register(@Body() createUserDto: CreateUserDto) {
@@ -67,6 +74,11 @@ export class AuthController {
     }
     await this.authService.validateToken(token);
     return { valid: true };
+  }
+
+  @Post('resend-otp')
+  async resendOtp(@Body('email') email: string) {
+    return this.authService.resendOtp(email);
   }
 
   @Post('refresh')

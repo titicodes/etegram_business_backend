@@ -38,9 +38,6 @@ export class Product extends Document {
   expiryDate?: Date;
 
   @Prop()
-  totalCost?: number;
-
-  @Prop()
   unitPrice?: number;
 
   @Prop({ required: true })
@@ -50,19 +47,11 @@ export class Product extends Document {
   image?: string;
 
 
-  @Prop({ type: Types.ObjectId, ref: 'UnitOfMeasure', required: true })
-  unitId: Types.ObjectId;
-
-
   @Prop({ required: false })
   size: string;
 
   @Prop({ required: false })
   totalQuantity: number;
-
-
-  @Prop({ required: false })
-  minQuantity: number;
 
 
   @Prop({ required: false })

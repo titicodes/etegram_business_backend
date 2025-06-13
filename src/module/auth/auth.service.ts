@@ -29,7 +29,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     @Inject(forwardRef(() => OtpService))
     private readonly otpService: OtpService,
-  ) {}
+  ) { }
 
   async login(dto: LoginDto) {
     try {
@@ -299,6 +299,35 @@ export class AuthService {
     } catch (error) {
       console.error('[AuthService][getUserByAccessToken] Error:', error);
       throw new UnauthorizedException('Invalid or expired token');
+    }
+  }
+
+  async resendOtp(email: string) {
+    try {
+      console.log('[AuthService][resendOtp] Resending OTP for:', { email });
+
+      const user = await this.userService.getUserByEmail(email);
+      if (!user) {
+        console.error('[AuthService][resendOtp] User not found:', { email });
+        throw new NotFoundException('User not found');
+      }
+
+      if (user.emailVerified) {
+        console.warn('[AuthService][resendOtp] Email already verified:', { email });
+        throw new UnprocessableEntityException('Email already verified');
+      }
+
+      await this.otpService.sendOTP({
+        email,
+        type: OtpTypeEnum.VERIFY_EMAIL,
+        phone: user.phoneNumber,
+      });
+
+      console.log('[AuthService][resendOtp] OTP resent successfully:', { email });
+      return { message: 'OTP resent successfully' };
+    } catch (error) {
+      console.error('[AuthService][resendOtp] Error:', error);
+      throw new BadRequestException(error.message || 'Failed to resend OTP');
     }
   }
 }

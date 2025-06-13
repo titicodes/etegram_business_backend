@@ -11,30 +11,43 @@ import { UpdateProductDto } from './dto/update-product.dto';
 
 @Controller('products')
 export class ProductController {
-  constructor(private readonly productService: ProductService) {}
+  constructor(private readonly productService: ProductService) { }
 
   @UseGuards(JwtAuthGuard)
   @Post('add')
-  async addProduct(@Body() createProductDto: CreateProductDto, @Body('storeId') storeId: string, @Request() req) {
-    return this.productService.addProduct(createProductDto, req.user._id, storeId, req.user.role);
+  async addProduct(@Body() createProductDto: CreateProductDto, @Request() req) {
+    // createProductDto will now contain storeId
+    return this.productService.addProduct(
+      createProductDto,
+      req.user._id,
+      createProductDto.storeId, // Get storeId directly from the DTO
+      req.user.role
+    );
   }
 
   @UseGuards(JwtAuthGuard)
   @Post('scan')
-  async scanAndAddProduct(@Body() createProductDto: CreateProductDto, @Body('storeId') storeId: string, @Request() req) {
-    return this.productService.scanAndAddProduct(createProductDto, req.user._id, storeId, req.user.role);
+  async scanAndAddProduct(@Body() createProductDto: CreateProductDto, @Request() req) {
+    // createProductDto will now contain storeId
+    return this.productService.scanAndAddProduct(
+      createProductDto,
+      req.user._id,
+      createProductDto.storeId, // Get storeId directly from the DTO
+      req.user.role
+    );
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Patch(':id')
-  async updateProduct(
-    @Param('id') id: string,
-    @Body() updateProductDto: UpdateProductDto,
-    @Body('storeId') storeId: string,
-    @Request() req,
-  ) {
-    return this.productService.updateProduct(id, updateProductDto, req.user._id, storeId, req.user.role);
-  }
+ // In Controller:
+@UseGuards(JwtAuthGuard)
+@Patch(':id/:storeId') // Add :storeId to the path
+async updateProduct(
+  @Param('id') id: string,
+  @Param('storeId') storeId: string, // Extract from path
+  @Body() updateProductDto: UpdateProductDto,
+  @Request() req,
+) {
+  return this.productService.updateProduct(id, updateProductDto, req.user._id, storeId, req.user.role);
+}
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')

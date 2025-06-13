@@ -17,41 +17,42 @@ export class ProductService {
     @InjectModel(ProductHistory.name) private readonly productHistoryModel: Model<ProductHistoryDocument>,
     @InjectModel(Store.name) private readonly storeModel: Model<StoreDocument>,
     private readonly categoryService: ProductCategoriesService,
-  ) {}
+  ) { }
 
   async addProduct(createProductDto: CreateProductDto, ownerId: string, storeId: string, userRole: UserRoleEnum[]): Promise<ProductDocument> {
     try {
       console.log('[ProductService][addProduct] Attempting to add product:', {
-        storeId,
+        storeId, // If this is undefined, the next check will fail
         ownerId,
         productName: createProductDto.name,
         userRole,
       });
 
-      // Validate user role
+      // Validate user role (looks fine)
       if (!userRole.includes(UserRoleEnum.STORE_OWNER) && !userRole.includes(UserRoleEnum.ADMIN)) {
-        console.error('[ProductService][addProduct] Unauthorized access:', { ownerId, userRole });
         throw new UnauthorizedException('Only store owners or admins can add products');
       }
 
       // Validate storeId
-      if (!Types.ObjectId.isValid(storeId)) {
+      if (!Types.ObjectId.isValid(storeId)) { // <--- THIS IS LIKELY WHERE IT FAILS
         console.error('[ProductService][addProduct] Invalid store ID:', { storeId });
         throw new BadRequestException('Invalid store ID');
       }
 
-      // Check store ownership (unless user is ADMIN)
+      // Check store ownership (this logic is correct for ensuring user-specific access)
       let store: StoreDocument | null;
       if (userRole.includes(UserRoleEnum.ADMIN)) {
         store = await this.storeModel.findById(storeId).exec();
       } else {
+        // This is the core logic that ensures a user can only access their own store
         store = await this.storeModel.findOne({ _id: storeId, owner: ownerId }).exec();
       }
 
-      if (!store) {
+      if (!store) { // <--- This would also fail if storeId is invalid or not found/owned
         console.error('[ProductService][addProduct] Store not found or unauthorized:', { storeId, ownerId });
         throw new BadRequestException('Store not found or you do not have permission');
       }
+
 
       // Validate product data
       if (!createProductDto.name || createProductDto.price < 0 || createProductDto.quantity < 0) {
@@ -76,14 +77,15 @@ export class ProductService {
       }
 
       // Create new product
-      const newProduct = new this.productModel({
-        ...createProductDto,
-        categoryId,
-        store: store._id,
-        createdBy: ownerId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+     const newProduct = new this.productModel({
+      ...createProductDto,
+      categoryId,
+      store: store._id,
+      owner: new Types.ObjectId(ownerId),
+      createdBy: new Types.ObjectId(ownerId), 
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
 
       await newProduct.save();
 
