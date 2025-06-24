@@ -1,4 +1,12 @@
-import { IsString, IsNotEmpty, IsNumber, Min, IsOptional, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsNumber,
+  Min,
+  IsOptional,
+  IsEnum,
+  IsDateString,
+} from 'class-validator';
 
 enum ExpenseCategory {
   UTILITIES = 'UTILITIES',
@@ -8,14 +16,13 @@ enum ExpenseCategory {
 }
 
 export class CreateExpenseDto {
-
   @IsString()
   @IsOptional()
   currency?: string;
 
   @IsString()
   @IsOptional()
-  paymentMethod?: string
+  paymentMethod?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -36,6 +43,10 @@ export class CreateExpenseDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @IsDateString() // <-- Validates ISO 8601 date strings
+  @IsOptional()
+  date?: string;
 }
 
 
@@ -64,4 +75,8 @@ export class UpdateExpenseDto {
   @IsString()
   @IsOptional()
   currency?: string;
+
+  @IsDateString() // Optional and properly validated
+  @IsOptional()
+  date?: string;
 }

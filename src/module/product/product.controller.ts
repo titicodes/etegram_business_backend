@@ -8,51 +8,34 @@ import { FilterProductDto } from './dto/filter-product.dto';
 import { LowStockProductsQueryDto } from './dto/low-stock-products-query.dto';
 import { SupplyProductDto } from './dto/supply-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { UserRoleEnum } from 'src/common/enums/user.enum';
 
 @Controller('products')
 export class ProductController {
   constructor(private readonly productService: ProductService) { }
 
+  // --- POST ROUTES ---
   @UseGuards(JwtAuthGuard)
   @Post('add')
   async addProduct(@Body() createProductDto: CreateProductDto, @Request() req) {
-    // createProductDto will now contain storeId
     return this.productService.addProduct(
       createProductDto,
       req.user._id,
-      createProductDto.storeId, // Get storeId directly from the DTO
+      createProductDto.storeId,
       req.user.role
     );
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Post('scan')
-  async scanAndAddProduct(@Body() createProductDto: CreateProductDto, @Request() req) {
-    // createProductDto will now contain storeId
-    return this.productService.scanAndAddProduct(
-      createProductDto,
-      req.user._id,
-      createProductDto.storeId, // Get storeId directly from the DTO
-      req.user.role
-    );
-  }
-
- // In Controller:
-@UseGuards(JwtAuthGuard)
-@Patch(':id/:storeId') // Add :storeId to the path
-async updateProduct(
-  @Param('id') id: string,
-  @Param('storeId') storeId: string, // Extract from path
-  @Body() updateProductDto: UpdateProductDto,
-  @Request() req,
-) {
-  return this.productService.updateProduct(id, updateProductDto, req.user._id, storeId, req.user.role);
-}
-
-  @UseGuards(JwtAuthGuard)
-  @Delete(':id')
-  async deleteProduct(@Param('id') id: string, @Body('storeId') storeId: string, @Request() req) {
-    return this.productService.deleteProduct(id, req.user._id, storeId, req.user.role);
+  @Post('scan') // No guard here, assumes internal or different auth
+  async scanAndAddProduct(
+    @Body() createProductDto: CreateProductDto,
+    @Request() req: any,
+  ) {
+    const ownerId = req.user.id;
+    const storeId = createProductDto.storeId;
+    const userRole = req.user.roles || [UserRoleEnum.STORE_OWNER];
+    const product = await this.productService.scanAndAddProduct(createProductDto, ownerId, storeId, userRole);
+    return { success: true, data: product, message: 'Product added successfully' };
   }
 
   @UseGuards(JwtAuthGuard)
@@ -67,6 +50,8 @@ async updateProduct(
     );
   }
 
+  // --- GET ROUTES - SPECIFIC SEGMENTS FIRST ---
+
   @UseGuards(JwtAuthGuard)
   @Get('filter/:storeId')
   async getFilteredProducts(
@@ -79,22 +64,35 @@ async updateProduct(
     return this.productService.getFilteredProducts(filterProductDto, req.user._id, storeId, page, limit);
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Get(':id/:storeId')
-  async findOne(@Param('id') id: string, @Param('storeId') storeId: string, @Request() req) {
-    return this.productService.findOne(id, req.user._id, storeId);
-  }
+  // @Get('by-code/:code/:storeId') // No guard, assumes internal or different auth
+  // async getProductByCode(
+  //   @Param('code') code: string,
+  //   @Param('storeId') storeId: string,
+  //   @Request() req: any,
+  // ) {
+  //   const ownerId = req.user.id;
+  //   const product = await this.productService.searchProductByCode(code, ownerId, storeId);
+  //   if (!product) {
+  //     return { success: false, message: 'Product not found' };
+  //   }
+  //   return { success: true, data: product };
+  // }
 
-  @UseGuards(JwtAuthGuard)
-  @Get('code/:code/:storeId')
-  async searchProductByCode(@Param('code') code: string, @Param('storeId') storeId: string, @Request() req) {
-    return this.productService.searchProductByCode(code, req.user._id, storeId);
+  @Get('check-code/:code/:storeId') // No guard, assumes internal or different auth
+  async checkProductExistence(
+    @Param('code') code: string,
+    @Param('storeId') storeId: string,
+    @Request() req: any,
+  ) {
+    const ownerId = req.user.id;
+    const result = await this.productService.checkProductExistenceByCode(code, ownerId, storeId);
+    return { success: true, data: { exists: result.exists }, message: 'Request completed successfully' };
   }
-
+  // Add this endpoint
   @UseGuards(JwtAuthGuard)
-  @Get('check-code/:code/:storeId')
-  async checkProductExistenceByCode(@Param('code') code: string, @Param('storeId') storeId: string, @Request() req) {
-    return this.productService.checkProductExistenceByCode(code, req.user._id, storeId);
+  @Get('code/:code')
+  async getProductByCode(@Param('code') code: string, @Query('storeId') storeId: string, @Request() req) {
+    return this.productService.getProductByCode(code, storeId, req.user);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -104,6 +102,8 @@ async updateProduct(
     @Query() query: ExpiringProductsQueryDto,
     @Request() req,
   ) {
+    console.log('*** ROUTING DEBUG: Entering getExpiringProducts controller method ***', { storeId, query, user: req.user });
+    console.log('[ProductController][getExpiringProducts] Request received:', { storeId, query, user: req.user });
     return this.productService.getExpiringProducts(
       req.user._id,
       storeId,
@@ -158,8 +158,10 @@ async updateProduct(
     );
   }
 
+  // --- GET ROUTES - GENERIC :ID SEGMENTS ---
+
   @UseGuards(JwtAuthGuard)
-  @Get(':id/history/:storeId')
+  @Get(':id/history/:storeId') // More specific than just :id/:storeId
   async getProductHistory(
     @Param('id') productId: string,
     @Param('storeId') storeId: string,
@@ -168,5 +170,30 @@ async updateProduct(
     @Request() req,
   ) {
     return this.productService.getProductHistory(productId, storeId, req.user._id, page, limit);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/:storeId') // This should now be the *last* resort for two-segment paths
+  async findOne(@Param('id') id: string, @Param('storeId') storeId: string, @Request() req) {
+    console.log('*** ROUTING DEBUG: Entering findOne controller method (generic fallback) ***', { id, storeId }); // Updated log
+    return this.productService.findOne(id, req.user._id, storeId);
+  }
+
+  // --- PATCH & DELETE ROUTES ---
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/:storeId') // Add :storeId to the path
+  async updateProduct(
+    @Param('id') id: string,
+    @Param('storeId') storeId: string,
+    @Body() updateProductDto: UpdateProductDto,
+    @Request() req,
+  ) {
+    return this.productService.updateProduct(id, updateProductDto, req.user._id, storeId, req.user.role);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id')
+  async deleteProduct(@Param('id') id: string, @Body('storeId') storeId: string, @Request() req) {
+    return this.productService.deleteProduct(id, req.user._id, storeId, req.user.role);
   }
 }

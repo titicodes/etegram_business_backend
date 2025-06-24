@@ -1,77 +1,53 @@
-import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import mongoose, { Document, Types } from "mongoose";
-import { User } from "src/module/user/schema/user.schema";
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document, Types } from 'mongoose';
 
 @Schema({ timestamps: true })
 export class Deliveries {
-    @Prop()
-    firstName: string
+    @Prop({ required: true })
+    firstName: string;
 
-    @Prop()
-    lastName: string
+    @Prop({ required: true })
+    lastName: string;
 
     @Prop({ required: true, unique: true })
     email: string;
 
-    @Prop()
-    phoneNumber?: string;
+    @Prop({ required: true })
+    phoneNumber: string;
 
-    @Prop({ default: true, unique: false })
+    @Prop()
+    extraPhone?: string;
+
+    @Prop({ required: true })
     estate: string;
 
-    @Prop()
+    @Prop({ required: true })
     country: string;
 
-    @Prop()
+    @Prop({ required: true })
     state: string;
 
-    @Prop()
+    @Prop({ required: true })
+    city: string;
+
+    @Prop({ required: true })
     area: string;
 
-    @Prop()
-    extraPhone: string;
-
-    @Prop()
+    @Prop({ required: true })
     supplierType: string;
 
     @Prop()
-    lga?: string;
-
-    @Prop()
-    extraDetails: string;
-
-    @Prop({ required: true })
-    orderId: string;
-
-    @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-    user: Types.ObjectId;
+    extraDetails?: string;
 
     @Prop({ type: Types.ObjectId, ref: 'Store', required: true })
     store: Types.ObjectId;
 
-    @Prop([
-        {
-            productCode: { type: String, required: true },
-            quantity: { type: Number, required: true, min: 1 },
-        },
-    ])
-    items: { productCode: string; quantity: number }[];
+    @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+    user: Types.ObjectId;
 
-    @Prop({ type: Types.ObjectId, ref: 'Supply', required: false })
-    supplierId?: Types.ObjectId;
-
-    @Prop({ default: '' })
-    notes: string;
-
-    @Prop({ enum: ['PENDING', 'DELIVERED', 'CANCELLED'], default: 'PENDING' })
+    @Prop({ default: 'ACTIVE' })
     status: string;
-
-    @Prop({ default: Date.now })
-    createdAt: Date;
-
-    @Prop({ default: Date.now })
-    updatedAt: Date;
-
 }
+
 export type DeliveriesDocument = Deliveries & Document;
-export const DeliveriesSchem = SchemaFactory.createForClass(Deliveries);
+export const DeliveriesSchema = SchemaFactory.createForClass(Deliveries);

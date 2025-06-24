@@ -36,6 +36,10 @@ export class Checkout extends Document {
 
   @Prop({ default: Date.now })
   createdAt: Date;
+
+   @Prop({ required: false, })
+  size?: string;
+
 }
 
 export type CheckoutDocument = Checkout & Document;

@@ -44,6 +44,12 @@ export class CreateCheckoutDto {
   @IsString()
   @IsNotEmpty()
   storeId: string;
+
+  @IsOptional()
+  @IsString()
+
+  size?: number;
+
 }
 
 

@@ -9,6 +9,16 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { FilterProductDto } from './dto/filter-product.dto';
 import { ProductHistory, ProductHistoryDocument } from '../product-history/schema/product-history.schema';
 import { UserRoleEnum } from 'src/common/enums/user.enum';
+import { User } from '../user/schema/user.schema';
+
+interface ProductHistoryInput {
+  type: string;
+  quantity: number;
+  product: Types.ObjectId;
+  store: Types.ObjectId;
+  userId: Types.ObjectId;
+  notes?: string;
+}
 
 @Injectable()
 export class ProductService {
@@ -22,45 +32,38 @@ export class ProductService {
   async addProduct(createProductDto: CreateProductDto, ownerId: string, storeId: string, userRole: UserRoleEnum[]): Promise<ProductDocument> {
     try {
       console.log('[ProductService][addProduct] Attempting to add product:', {
-        storeId, // If this is undefined, the next check will fail
+        storeId,
         ownerId,
         productName: createProductDto.name,
         userRole,
       });
 
-      // Validate user role (looks fine)
       if (!userRole.includes(UserRoleEnum.STORE_OWNER) && !userRole.includes(UserRoleEnum.ADMIN)) {
         throw new UnauthorizedException('Only store owners or admins can add products');
       }
 
-      // Validate storeId
-      if (!Types.ObjectId.isValid(storeId)) { // <--- THIS IS LIKELY WHERE IT FAILS
+      if (!Types.ObjectId.isValid(storeId)) {
         console.error('[ProductService][addProduct] Invalid store ID:', { storeId });
         throw new BadRequestException('Invalid store ID');
       }
 
-      // Check store ownership (this logic is correct for ensuring user-specific access)
       let store: StoreDocument | null;
       if (userRole.includes(UserRoleEnum.ADMIN)) {
         store = await this.storeModel.findById(storeId).exec();
       } else {
-        // This is the core logic that ensures a user can only access their own store
         store = await this.storeModel.findOne({ _id: storeId, owner: ownerId }).exec();
       }
 
-      if (!store) { // <--- This would also fail if storeId is invalid or not found/owned
+      if (!store) {
         console.error('[ProductService][addProduct] Store not found or unauthorized:', { storeId, ownerId });
         throw new BadRequestException('Store not found or you do not have permission');
       }
 
-
-      // Validate product data
       if (!createProductDto.name || createProductDto.price < 0 || createProductDto.quantity < 0) {
         console.error('[ProductService][addProduct] Invalid product data:', { createProductDto });
         throw new BadRequestException('Invalid product data: name, price, and quantity are required and must be valid');
       }
 
-      // Check for duplicate product code
       if (createProductDto.code) {
         const existingProduct = await this.productModel.findOne({ code: createProductDto.code, store: storeId }).exec();
         if (existingProduct) {
@@ -69,36 +72,32 @@ export class ProductService {
         }
       }
 
-      // Handle category
       let categoryId: Types.ObjectId | undefined;
       if (createProductDto.category) {
         const categoryEntity = await this.categoryService.findOrCreate(createProductDto.category);
         categoryId = categoryEntity._id as Types.ObjectId;
       }
 
-      // Create new product
-     const newProduct = new this.productModel({
-      ...createProductDto,
-      categoryId,
-      store: store._id,
-      owner: new Types.ObjectId(ownerId),
-      createdBy: new Types.ObjectId(ownerId), 
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+      const newProduct = new this.productModel({
+        ...createProductDto,
+        categoryId,
+        store: store._id,
+        owner: new Types.ObjectId(ownerId),
+        createdBy: new Types.ObjectId(ownerId),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
       await newProduct.save();
 
-      // Update store's products array
       await this.storeModel.updateOne({ _id: store._id }, { $push: { products: newProduct._id } }).exec();
 
-      // Log history for initial stock
       await this.createProductHistory({
         type: 'restock',
         quantity: newProduct.quantity,
-        product: new Types.ObjectId(newProduct._id.toString()),
-        store: new Types.ObjectId(storeId), // Convert storeId to ObjectId
-        userId: new Types.ObjectId(ownerId), // Convert ownerId to ObjectId
+        product: new Types.ObjectId(newProduct._id.toString()), // Corrected
+        store: new Types.ObjectId(storeId),
+        userId: new Types.ObjectId(ownerId),
         notes: 'Initial product creation',
       });
 
@@ -161,7 +160,6 @@ export class ProductService {
         throw new BadRequestException('Invalid productId or storeId');
       }
 
-      // Validate product exists and belongs to store
       const product = await this.productModel
         .findOne({ _id: productId, store: storeId, createdBy: ownerId })
         .exec();
@@ -202,57 +200,71 @@ export class ProductService {
     page: number = 1,
     limit: number = 10,
   ): Promise<any> {
-    try {
-      console.log('[ProductService][getFilteredProducts] Fetching filtered products:', {
-        ownerId,
-        storeId,
-        filter: filterProductDto,
-        page,
-        limit,
-      });
+    console.log('[ProductService][getFilteredProducts] Fetching filtered products:', {
+      ownerId,
+      storeId,
+      filter: filterProductDto,
+      page,
+      limit,
+    });
 
-      const { category, search } = filterProductDto;
-      const query: any = { createdBy: ownerId, store: storeId };
+    const { category, search } = filterProductDto;
+    const query: any = { createdBy: ownerId, store: storeId };
 
-      if (search) {
-        query.$or = [
-          { name: { $regex: search, $options: 'i' } },
-          { description: { $regex: search, $options: 'i' } },
-          { code: { $regex: search, $options: 'i' } },
-        ];
-      }
-
-      if (category && Types.ObjectId.isValid(category)) {
-        query.categoryId = new Types.ObjectId(category);
-      } else if (category) {
-        console.error('[ProductService][getFilteredProducts] Invalid category ID:', { category });
-        throw new BadRequestException('Invalid category ID format');
-      }
-
-      const skip = (page - 1) * limit;
-
-      const products = await this.productModel
-        .find(query)
-        .skip(skip)
-        .limit(limit)
-        .populate('categoryId')
-        .exec();
-
-      const total = await this.productModel.countDocuments(query);
-
-      console.log('[ProductService][getFilteredProducts] Products fetched:', { total, page, limit });
-
-      return {
-        data: products,
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      };
-    } catch (error) {
-      console.error('[ProductService][getFilteredProducts] Error:', error);
-      throw new BadRequestException(error.message || 'Failed to fetch filtered products');
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { code: { $regex: search, $options: 'i' } },
+      ];
     }
+
+    if (category) {
+      if (Types.ObjectId.isValid(category)) {
+        // If the provided 'category' is already a valid ObjectId, use it directly
+        query.categoryId = new Types.ObjectId(category);
+      } else {
+        // If it's not a valid ObjectId, assume it's a category name and look it up
+        try {
+          const categoryEntity = await this.categoryService.findOneByName(category);
+          if (categoryEntity) {
+            query.categoryId = categoryEntity._id;
+          } else {
+            // If the category name doesn't exist, we should not filter by category.
+            // You might choose to throw an error here if you want strict validation,
+            // but for a filter, it's often better to just return no products for that non-existent category.
+            console.warn(`[ProductService][getFilteredProducts] Category name '${category}' not found. No category filter applied.`);
+            // To ensure no results for a non-existent category name, you could potentially make the query
+            // impossible to match, e.g., query._id = null; or just proceed without categoryId in query.
+            // For now, proceeding without it means this filter part will be ignored.
+          }
+        } catch (error) {
+          console.error('[ProductService][getFilteredProducts] Error looking up category by name:', error);
+          throw new BadRequestException('Failed to process category filter due to an internal error.');
+        }
+      }
+    }
+
+    const skip = (page - 1) * limit;
+
+    const products = await this.productModel
+      .find(query)
+      .skip(skip)
+      .limit(limit)
+      .populate('categoryId') // Keep populating if you want the full category object in the result
+      .exec();
+
+    const total = await this.productModel.countDocuments(query);
+
+    console.log('[ProductService][getFilteredProducts] Products fetched:', { total, page, limit });
+
+    return {
+      data: products,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findOne(id: string, ownerId: string, storeId: string): Promise<ProductDocument> {
@@ -260,8 +272,8 @@ export class ProductService {
       console.log('[ProductService][findOne] Fetching product:', { id, ownerId, storeId });
 
       if (!Types.ObjectId.isValid(id)) {
-        console.error('[ProductService][findOne] Invalid product ID:', { id });
-        throw new BadRequestException('Invalid product ID format');
+        console.error('[ProductService][findOne] Invalid product ID format:', { id });
+        throw new BadRequestException(`Invalid product ID format: ${id}`);
       }
 
       const product = await this.productModel
@@ -276,8 +288,8 @@ export class ProductService {
       console.log('[ProductService][findOne] Product fetched:', { productId: id });
       return product;
     } catch (error) {
-      console.error('[ProductService][findOne] Error:', error);
-      throw new BadRequestException(error.message || 'Failed to fetch product');
+      console.error('[ProductService][findOne] Error:', { id, error: error.message });
+      throw new BadRequestException(error.message || `Failed to fetch product with ID: ${id}`);
     }
   }
 
@@ -285,15 +297,14 @@ export class ProductService {
     try {
       console.log('[ProductService][searchProductByCode] Searching product:', { code, ownerId, storeId });
 
-      if (!code || !Types.ObjectId.isValid(ownerId) || !Types.ObjectId.isValid(storeId)) {
-        console.error('[ProductService][searchProductByCode] Invalid input:', { code, ownerId, storeId });
-        throw new BadRequestException('Invalid code, ownerId, or storeId');
+      if (!code || !Types.ObjectId.isValid(storeId)) {
+        console.error('[ProductService][searchProductByCode] Invalid input:', { code, storeId });
+        throw new BadRequestException('Invalid code or storeId');
       }
 
       const product = await this.productModel
         .findOne({
           code,
-          createdBy: new Types.ObjectId(ownerId),
           store: new Types.ObjectId(storeId),
         })
         .populate('categoryId')
@@ -311,7 +322,6 @@ export class ProductService {
     try {
       console.log('[ProductService][updateProduct] Attempting to update product:', { id, ownerId, storeId, userRole });
 
-      // Validate user role
       if (!userRole.includes(UserRoleEnum.STORE_OWNER) && !userRole.includes(UserRoleEnum.ADMIN)) {
         console.error('[ProductService][updateProduct] Unauthorized access:', { ownerId, userRole });
         throw new UnauthorizedException('Only store owners or admins can update products');
@@ -325,21 +335,19 @@ export class ProductService {
         throw new NotFoundException('Product not found or you do not have permission');
       }
 
-      // Handle category
       if (updateProductDto.category) {
         const categoryEntity = await this.categoryService.findOrCreate(updateProductDto.category);
         existingProduct.categoryId = categoryEntity._id as Types.ObjectId;
         existingProduct.category = updateProductDto.category;
       }
 
-      // Log quantity change as history
       if (updateProductDto.quantity !== undefined && updateProductDto.quantity !== existingProduct.quantity) {
         await this.createProductHistory({
           type: 'adjustment',
           quantity: updateProductDto.quantity - existingProduct.quantity,
-          product: new Types.ObjectId(existingProduct._id.toString()),
-          store: new Types.ObjectId(storeId), // Convert storeId to ObjectId
-          userId: new Types.ObjectId(ownerId), // Convert ownerId to ObjectId
+          product: new Types.ObjectId(existingProduct._id.toString()), // Corrected
+          store: new Types.ObjectId(storeId),
+          userId: new Types.ObjectId(ownerId),
           notes: 'Quantity updated via product edit',
         });
       }
@@ -360,7 +368,6 @@ export class ProductService {
     try {
       console.log('[ProductService][deleteProduct] Attempting to delete product:', { id, ownerId, storeId, userRole });
 
-      // Validate user role
       if (!userRole.includes(UserRoleEnum.STORE_OWNER) && !userRole.includes(UserRoleEnum.ADMIN)) {
         console.error('[ProductService][deleteProduct] Unauthorized access:', { ownerId, userRole });
         throw new UnauthorizedException('Only store owners or admins can delete products');
@@ -377,10 +384,8 @@ export class ProductService {
         throw new NotFoundException('Product not found or you do not have permission');
       }
 
-      // Remove product from store's products array
       await this.storeModel.updateOne({ _id: storeId }, { $pull: { products: id } }).exec();
 
-      // Delete related history
       await this.productHistoryModel.deleteMany({ product: id, store: storeId }).exec();
 
       console.log('[ProductService][deleteProduct] Product deleted:', { productId: id });
@@ -401,7 +406,6 @@ export class ProductService {
         userRole,
       });
 
-      // Validate user role
       if (!userRole.includes(UserRoleEnum.STORE_OWNER) && !userRole.includes(UserRoleEnum.ADMIN)) {
         console.error('[ProductService][supplyProduct] Unauthorized access:', { ownerId, userRole });
         throw new UnauthorizedException('Only store owners or admins can supply products');
@@ -424,13 +428,12 @@ export class ProductService {
       product.updatedAt = new Date();
       await product.save();
 
-      // Log restock history
       await this.createProductHistory({
         type: 'restock',
         quantity: additionalQuantity,
-        product: new Types.ObjectId(product._id.toString()),
-        store: new Types.ObjectId(storeId), // Convert storeId to ObjectId
-        userId: new Types.ObjectId(ownerId), // Convert ownerId to ObjectId
+        product: new Types.ObjectId(product._id.toString()), // Corrected
+        store: new Types.ObjectId(storeId),
+        userId: new Types.ObjectId(ownerId),
         notes: 'Product restocked',
       });
 
@@ -453,12 +456,29 @@ export class ProductService {
         storeId,
         ownerId,
         productName: createProductDto.name,
+        code: createProductDto.code,
         userRole,
       });
+
+      if (createProductDto.code) {
+        const existingProduct = await this.productModel
+          .findOne({ code: createProductDto.code, store: storeId })
+          .exec();
+        if (existingProduct) {
+          console.error('[ProductService][scanAndAddProduct] Product code already exists:', {
+            code: createProductDto.code,
+            productId: existingProduct._id,
+          });
+          throw new ConflictException(`Product with code ${createProductDto.code} already exists`);
+        }
+      }
 
       return await this.addProduct(createProductDto, ownerId, storeId, userRole);
     } catch (error) {
       console.error('[ProductService][scanAndAddProduct] Error:', error);
+      if (error instanceof ConflictException) {
+        throw error;
+      }
       throw new BadRequestException(error.message || 'Failed to scan and add product');
     }
   }
@@ -475,11 +495,23 @@ export class ProductService {
         storeId,
       });
 
+      if (!code || !Types.ObjectId.isValid(storeId)) {
+        console.error('[ProductService][checkProductExistenceByCode] Invalid input:', { code, storeId });
+        throw new BadRequestException('Invalid code or storeId');
+      }
+
       const product = await this.productModel
-        .findOne({ code, createdBy: ownerId, store: storeId })
+        .findOne({ code, store: storeId })
         .exec();
 
-      console.log('[ProductService][checkProductExistenceByCode] Result:', { exists: !!product, code });
+      console.log('[ProductService][checkProductExistenceByCode] Result:', {
+        exists: !!product,
+        code,
+        productId: product?._id,
+        createdBy: product?.createdBy,
+        store: product?.store,
+      });
+
       return { exists: !!product, product: product || undefined };
     } catch (error) {
       console.error('[ProductService][checkProductExistenceByCode] Error:', error);
@@ -714,5 +746,18 @@ export class ProductService {
       console.error('[ProductService][getExpiringAndLowStockProducts] Error:', error);
       throw new BadRequestException(error.message || 'Failed to fetch expiring and low stock products');
     }
+  }
+
+  async getProductByCode(code: string, storeId: string, user: User): Promise<Product> {
+    if (!Types.ObjectId.isValid(storeId)) {
+      throw new BadRequestException('Invalid store ID');
+    }
+
+    const product = await this.productModel.findOne({ code, store: storeId, createdBy: user._id }).exec();
+    if (!product) {
+      throw new NotFoundException(`Product with code ${code} not found in store ${storeId}`);
+    }
+
+    return product;
   }
 }

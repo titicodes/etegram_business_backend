@@ -1,3 +1,4 @@
+
 import { BadRequestException, ConflictException, Injectable, NotFoundException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -6,6 +7,7 @@ import { User, UserDocument } from '../user/schema/user.schema';
 import { UserRoleEnum } from '../../common/enums/user.enum';
 import { CreateCustomerDto } from './dto/customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { Store, StoreDocument } from '../store/schema/store.schema';
 
 @Injectable()
 export class CustomerService {
@@ -13,7 +15,8 @@ export class CustomerService {
 
   constructor(
     @InjectModel(Customer.name) private readonly customerModel: Model<CustomerDocument>,
-  ) {}
+    @InjectModel(Store.name) private readonly storeModel: Model<StoreDocument>,
+  ) { }
 
   async createCustomer(dto: CreateCustomerDto, user: UserDocument): Promise<{ success: boolean; data: Customer; message: string }> {
     this.logger.log(`Creating customer for user=${user._id}`);
@@ -43,11 +46,16 @@ export class CustomerService {
           user: user._id,
           store: dto.storeId ? new Types.ObjectId(dto.storeId) : undefined,
           extraPhone: dto.extraPhone || '',
+          birthday: dto.birthday ? new Date(dto.birthday) : undefined,
           createdAt: new Date(),
         },
       ]);
 
-      const fullCustomer = await this.customerModel.findById(newCustomer._id).lean().exec();
+      const fullCustomer = await this.customerModel
+        .findById(newCustomer._id)
+        .populate('store', 'name')
+        .lean()
+        .exec();
       this.logger.log(`Created customer id=${newCustomer._id}`);
       return {
         success: true,
@@ -82,7 +90,12 @@ export class CustomerService {
     }
 
     try {
-      Object.assign(customer, { ...dto, extraPhone: dto.extraPhone || customer.extraPhone, updatedAt: new Date() });
+      Object.assign(customer, {
+        ...dto,
+        extraPhone: dto.extraPhone || customer.extraPhone,
+        birthday: dto.birthday ? new Date(dto.birthday) : customer.birthday,
+        updatedAt: new Date(),
+      });
       const updatedCustomer = await customer.save();
       this.logger.log(`Updated customer id=${id}`);
       return updatedCustomer;
@@ -114,7 +127,10 @@ export class CustomerService {
     }
 
     try {
-      const customer = await this.customerModel.findOne(query).exec();
+      const customer = await this.customerModel
+        .findOne(query)
+        .populate('store', 'name')
+        .exec();
       this.logger.log(customer ? `Found customer id=${customer._id}` : 'No customer found');
       return customer;
     } catch (error) {
@@ -123,7 +139,7 @@ export class CustomerService {
     }
   }
 
-  async findAll(user: UserDocument, storeId?: string, keyword?: string): Promise<Customer[]> {
+  async findAll(user: UserDocument, storeId?: string, keyword?: string, limit: number = 20, page: number = 1): Promise<{ customers: Customer[]; total: number }> {
     this.logger.log(`Finding all customers for user=${user._id}, store=${storeId || 'all'}, keyword=${keyword || 'none'}`);
 
     const query: any = { user: user._id };
@@ -148,12 +164,56 @@ export class CustomerService {
     }
 
     try {
-      const customers = await this.customerModel.find(query).exec();
-      this.logger.log(`Found ${customers.length} customers`);
-      return customers;
+      const total = await this.customerModel.countDocuments(query).exec();
+      const customers = await this.customerModel
+        .find(query)
+        .populate('store', 'name')
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .exec();
+      this.logger.log(`Found ${customers.length} customers of ${total}`);
+      return { customers, total };
     } catch (error) {
       this.logger.error(`Failed to find customers: ${error.message}`, error.stack);
       throw new InternalServerErrorException('Failed to find customers');
+    }
+  }
+
+  async findUpcomingBirthdays(user: UserDocument, storeId?: string): Promise<Customer[]> {
+    this.logger.log(`Finding upcoming birthdays for user=${user._id}, store=${storeId || 'all'}`);
+
+    const query: any = { user: user._id, birthday: { $exists: true, $ne: null } };
+    if (storeId) {
+      if (!Types.ObjectId.isValid(storeId)) {
+        throw new BadRequestException('Invalid store ID');
+      }
+      const store = await this.validateStoreAccess(storeId, user._id.toString(), user.role);
+      if (!store) {
+        throw new BadRequestException('Store not found or you do not have permission');
+      }
+      query.store = storeId;
+    }
+
+    const today = new Date();
+    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, today.getDate());
+    try {
+      const customers = await this.customerModel
+        .find(query)
+        .populate('store', 'name')
+        .exec();
+      const upcoming = customers.filter(customer => {
+        const birthday = new Date(customer.birthday!);
+        const nextBirthday = new Date(today.getFullYear(), birthday.getMonth(), birthday.getDate());
+        if (nextBirthday < today) {
+          nextBirthday.setFullYear(today.getFullYear() + 1);
+        }
+        return nextBirthday >= today && nextBirthday <= nextMonth;
+      });
+      this.logger.log(`Found ${upcoming.length} customers with upcoming birthdays`);
+      return upcoming;
+    } catch (error) {
+      this.logger.error(`Failed to find upcoming birthdays: ${error.message}`, error.stack);
+      throw new InternalServerErrorException('Failed to find upcoming birthdays');
     }
   }
 
@@ -178,16 +238,13 @@ export class CustomerService {
     }
   }
 
-  private async validateStoreAccess(storeId: string, userId: string, userRole: UserRoleEnum[]): Promise<any> {
-    const storeModel = this.customerModel.db.model('Store');
+  private async validateStoreAccess(storeId: string, userId: string, userRole: UserRoleEnum[]): Promise<Store | null> {
     let store;
-
     if (userRole.includes(UserRoleEnum.ADMIN)) {
-      store = await storeModel.findById(storeId).exec();
+      store = await this.storeModel.findById(storeId).exec();
     } else {
-      store = await storeModel.findOne({ _id: storeId, owner: userId }).exec();
+      store = await this.storeModel.findOne({ _id: storeId, owner: userId }).exec();
     }
-
     return store;
   }
 }

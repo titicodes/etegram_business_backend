@@ -12,6 +12,7 @@ export class ExpenseService {
 
     constructor(
         @InjectModel(Expense.name) private readonly expenseModel: Model<ExpenseDocument>,
+        @InjectModel('Store') private readonly storeModel: Model<any>,
     ) { }
 
     async createExpense(createDto: CreateExpenseDto, user: UserDocument): Promise<Expense> {
@@ -31,14 +32,12 @@ export class ExpenseService {
         }
 
         try {
-            const [expense] = await this.expenseModel.create([
-                {
-                    ...createDto,
-                    user: user._id,
-                    store: createDto.storeId,
-                    createdAt: new Date(),
-                },
-            ]);
+            const expense = await this.expenseModel.create({
+                ...createDto,
+                user: user._id,
+                store: createDto.storeId,
+                createdAt: new Date(),
+            });
             this.logger.log(`Created expense id=${expense._id}`);
             return expense;
         } catch (error) {
@@ -49,6 +48,10 @@ export class ExpenseService {
 
     async findAllExpenses(user: UserDocument, storeId?: string): Promise<Expense[]> {
         this.logger.log(`Fetching expenses for user=${user._id}, store=${storeId || 'all'}`);
+
+        if (!user || !user._id) {
+            throw new BadRequestException('User information is missing');
+        }
 
         const query: any = { user: user._id };
         if (storeId) {
@@ -63,7 +66,7 @@ export class ExpenseService {
         }
 
         try {
-            const expenses = await this.expenseModel.find(query).exec();
+            const expenses = await this.expenseModel.find(query).sort({ createdAt: -1 }).exec();
             this.logger.log(`Found ${expenses.length} expenses`);
             return expenses;
         } catch (error) {
@@ -77,6 +80,10 @@ export class ExpenseService {
 
         if (!Types.ObjectId.isValid(id)) {
             throw new BadRequestException('Invalid expense ID');
+        }
+
+        if (!user || !user._id) {
+            throw new BadRequestException('User information is missing');
         }
 
         try {
@@ -101,6 +108,10 @@ export class ExpenseService {
             throw new BadRequestException('Invalid expense ID');
         }
 
+        if (!user || !user._id) {
+            throw new BadRequestException('User information is missing');
+        }
+
         const expense = await this.expenseModel.findOne({ _id: id, user: user._id }).exec();
         if (!expense) {
             throw new NotFoundException(`Expense with ID ${id} not found`);
@@ -115,7 +126,11 @@ export class ExpenseService {
 
         try {
             const updatedExpense = await this.expenseModel
-                .findOneAndUpdate({ _id: id, user: user._id }, { ...updateDto, updatedAt: new Date() }, { new: true })
+                .findOneAndUpdate(
+                    { _id: id, user: user._id },
+                    { ...updateDto, updatedAt: new Date() },
+                    { new: true }
+                )
                 .exec();
             if (!updatedExpense) {
                 throw new NotFoundException(`Expense with ID ${id} not found`);
@@ -137,6 +152,10 @@ export class ExpenseService {
             throw new BadRequestException('Invalid expense ID');
         }
 
+        if (!user || !user._id) {
+            throw new BadRequestException('User information is missing');
+        }
+
         try {
             const result = await this.expenseModel.deleteOne({ _id: id, user: user._id }).exec();
             if (result.deletedCount === 0) {
@@ -153,13 +172,19 @@ export class ExpenseService {
     }
 
     private async validateStoreAccess(storeId: string, userId: string, userRole: UserRoleEnum[]): Promise<any> {
-        const storeModel = this.expenseModel.db.model('Store');
-        let store;
+        if (!Types.ObjectId.isValid(storeId)) {
+            throw new BadRequestException('Invalid store ID');
+        }
 
+        let store;
         if (userRole.includes(UserRoleEnum.ADMIN)) {
-            store = await storeModel.findById(storeId).exec();
+            store = await this.storeModel.findById(storeId).exec();
         } else {
-            store = await storeModel.findOne({ _id: storeId, owner: userId }).exec();
+            store = await this.storeModel.findOne({ _id: storeId, owner: userId }).exec();
+        }
+
+        if (!store) {
+            this.logger.warn(`Store access denied for storeId=${storeId}, userId=${userId}`);
         }
 
         return store;
