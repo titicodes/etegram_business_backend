@@ -53,4 +53,43 @@ export class CheckoutController {
     }
     return this.checkoutService.updateOrderStatus(req.params.id, status, req.user._id, req.user.role);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('sales-history')
+  async getSalesHistory(
+    @Query('storeId') storeId: string,
+    @Query('productId') productId: string,
+    @Request() req,
+  ) {
+    if (!storeId) {
+      throw new BadRequestException('Store ID is required');
+    }
+    return this.checkoutService.getSalesHistory(storeId, req.user._id, req.user.role, productId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('owing')
+  async getOwingRecords(
+    @Query('storeId') storeId: string,
+    @Query('supplierId') supplierId: string,
+    @Request() req,
+  ) {
+    if (!storeId) {
+      throw new BadRequestException('Store ID is required');
+    }
+    return this.checkoutService.getOwingRecords(storeId, req.user._id, req.user.role, supplierId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('owed')
+  async getOwedRecords(
+    @Query('storeId') storeId: string,
+    @Query('customerId') customerId: string,
+    @Request() req,
+  ) {
+    if (!storeId) {
+      throw new BadRequestException('Store ID is required');
+    }
+    return this.checkoutService.getOwedRecords(storeId, req.user._id, req.user.role, customerId);
+  }
 }

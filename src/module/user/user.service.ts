@@ -8,6 +8,7 @@ import { pinDto, changePinDto } from './dto/change-pin.dto';
 import { JwtService } from '@nestjs/jwt';
 import { Store, StoreDocument } from '../store/schema/store.schema';
 import { UserRoleEnum } from '../../common/enums/user.enum';
+import { SubscriptionService } from '../subscription/subscription.service';
 
 @Injectable()
 export class UserService {
@@ -15,7 +16,53 @@ export class UserService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Store.name) private storeModel: Model<StoreDocument>,
     private readonly jwtService: JwtService,
+    private readonly subscriptionService: SubscriptionService, // Assuming SubscriptionService is defined and injected
   ) { }
+
+  // async createUser(dto: CreateUserDto): Promise<{ customer: User; accessToken: string; refreshToken: string }> {
+  //   const { email, password, firstName, lastName, phoneNumber, country, state, city, area, currency, businessType, businessName } = dto;
+
+  //   const existingUser = await this.userModel.findOne({ email }).exec();
+  //   if (existingUser) {
+  //     throw new ConflictException(`User with email ${email} already exists`);
+  //   }
+
+  //   const hashedPassword = await BaseHelper.hashData(password);
+  //   const user = new this.userModel({
+  //     email,
+  //     password: hashedPassword,
+  //     firstName,
+  //     lastName,
+  //     phoneNumber,
+  //     country,
+  //     state,
+  //     city,
+  //     area,
+  //     currency,
+  //     businessType,
+  //     businessName,
+  //     role: [UserRoleEnum.STORE_OWNER],
+  //     stores: [],
+  //     store: null,
+  //     emailVerified: false,
+  //   });
+
+  //   await user.save();
+
+  //   const accessToken = this.jwtService.sign(
+  //     { _id: user._id.toString(), email: user.email, role: user.role },
+  //     { secret: process.env.JWT_SECRET, expiresIn: '15m' },
+  //   );
+  //   const refreshToken = this.jwtService.sign(
+  //     { _id: user._id.toString() },
+  //     { secret: process.env.JWT_REFRESH_SECRET, expiresIn: '7d' },
+  //   );
+
+  //   user.refreshToken = refreshToken;
+  //   await user.save();
+
+  //   return { customer: user, accessToken, refreshToken };
+  // }
 
   async createUser(dto: CreateUserDto): Promise<{ customer: User; accessToken: string; refreshToken: string }> {
     const { email, password, firstName, lastName, phoneNumber, country, state, city, area, currency, businessType, businessName } = dto;
@@ -46,6 +93,9 @@ export class UserService {
     });
 
     await user.save();
+
+    // Create subscription for new user
+    await this.subscriptionService.createSubscription(user._id.toString());
 
     const accessToken = this.jwtService.sign(
       { _id: user._id.toString(), email: user.email, role: user.role },

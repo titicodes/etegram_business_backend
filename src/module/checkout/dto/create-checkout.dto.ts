@@ -50,6 +50,11 @@ export class CreateCheckoutDto {
 
   size?: number;
 
+  isCredit?: boolean;
+
+  customerId?: string;
+  supplierId?: string;
+
 }
 
 

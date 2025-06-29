@@ -24,6 +24,9 @@ import { PaymentMethodModule } from './module/payment-method/payment-method.modu
 import { CustomerModule } from './module/customer/customer.module';
 import { ExpenseModule } from './module/expenses/expenses.module';
 import { DeliveriesModule } from './module/deliveries/deliveries.module';
+import { ChatService } from './chat/chat.service';
+import { ChatModule } from './chat/chat.module';
+import { SubscriptionModule } from './module/subscription/subscription.module';
 
 
 @Module({
@@ -61,7 +64,9 @@ import { DeliveriesModule } from './module/deliveries/deliveries.module';
     PaymentMethodModule,
     CustomerModule,
     ExpenseModule,
-    DeliveriesModule
+    DeliveriesModule,
+    SubscriptionModule,
+    ChatModule
   ],
   controllers: [AppController],
   providers: [AppService],
