@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsNotEmpty, IsArray, IsNumber, IsOptional, IsEnum, IsString, ValidateNested, Min } from 'class-validator';
+import { IsNotEmpty, IsArray, IsNumber, IsOptional, IsEnum, IsString, ValidateNested, Min, IsMongoId } from 'class-validator';
 
 export class ScanProductDto {
   @IsString()
@@ -50,9 +50,15 @@ export class CreateCheckoutDto {
 
   size?: number;
 
+  @IsOptional()
   isCredit?: boolean;
 
+  @IsOptional()
+  @IsMongoId()
   customerId?: string;
+
+  @IsOptional()
+  @IsMongoId()
   supplierId?: string;
 
 }

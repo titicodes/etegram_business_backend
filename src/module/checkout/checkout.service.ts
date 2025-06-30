@@ -586,6 +586,7 @@ export class CheckoutService {
 
   async createCheckout(createCheckoutDto: CreateCheckoutDto, user: UserDocument): Promise<CheckoutDocument> {
     const { cart, discount = 0, tax = 0, paymentMethod, storeId, isCredit = false, customerId, supplierId } = createCheckoutDto;
+    
 
     this.logger.log(`Creating checkout: User=${user._id}, Store=${storeId}, Cart=${JSON.stringify(cart)}, Discount=${discount}, Tax=${tax}, PaymentMethod=${paymentMethod}, IsCredit=${isCredit}, CustomerId=${customerId}, SupplierId=${supplierId}`);
 
