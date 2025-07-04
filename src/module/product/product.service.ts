@@ -364,6 +364,8 @@ export class ProductService {
     }
   }
 
+
+
   async deleteProduct(id: string, ownerId: string, storeId: string, userRole: UserRoleEnum[]): Promise<{ deleted: boolean }> {
     try {
       console.log('[ProductService][deleteProduct] Attempting to delete product:', { id, ownerId, storeId, userRole });
@@ -373,10 +375,33 @@ export class ProductService {
         throw new UnauthorizedException('Only store owners or admins can delete products');
       }
 
+      if (!Types.ObjectId.isValid(id)) {
+        console.error('[ProductService][deleteProduct] Invalid product ID:', { id });
+        throw new BadRequestException('Invalid product ID');
+      }
+
+      if (!Types.ObjectId.isValid(storeId)) {
+        console.error('[ProductService][deleteProduct] Invalid store ID:', { storeId });
+        throw new BadRequestException('Invalid store ID');
+      }
+
+      if (!Types.ObjectId.isValid(ownerId)) {
+        console.error('[ProductService][deleteProduct] Invalid owner ID:', { ownerId });
+        throw new BadRequestException('Invalid owner ID');
+      }
+
+      // Explicitly cast to ObjectId
+      const product = await this.productModel.findOne({
+        _id: new Types.ObjectId(id),
+        createdBy: new Types.ObjectId(ownerId),
+        store: new Types.ObjectId(storeId),
+      }).exec();
+      console.log('[ProductService][deleteProduct] Product lookup result:', { product: product ? product : null });
+
       const result = await this.productModel.deleteOne({
-        _id: id,
-        createdBy: ownerId,
-        store: storeId,
+        _id: new Types.ObjectId(id),
+        createdBy: new Types.ObjectId(ownerId),
+        store: new Types.ObjectId(storeId),
       }).exec();
 
       if (result.deletedCount === 0) {
@@ -384,18 +409,23 @@ export class ProductService {
         throw new NotFoundException('Product not found or you do not have permission');
       }
 
-      await this.storeModel.updateOne({ _id: storeId }, { $pull: { products: id } }).exec();
+      await this.storeModel.updateOne(
+        { _id: new Types.ObjectId(storeId) },
+        { $pull: { products: new Types.ObjectId(id) } }
+      ).exec();
 
-      await this.productHistoryModel.deleteMany({ product: id, store: storeId }).exec();
+      await this.productHistoryModel.deleteMany({
+        product: new Types.ObjectId(id),
+        store: new Types.ObjectId(storeId),
+      }).exec();
 
       console.log('[ProductService][deleteProduct] Product deleted:', { productId: id });
       return { deleted: true };
     } catch (error) {
       console.error('[ProductService][deleteProduct] Error:', error);
-      throw new BadRequestException(error.message || 'Failed to delete product');
+      throw error;
     }
   }
-
   async supplyProduct(id: string, additionalQuantity: number, ownerId: string, storeId: string, userRole: UserRoleEnum[]): Promise<ProductDocument> {
     try {
       console.log('[ProductService][supplyProduct] Attempting to supply product:', {

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Query, Param, Request, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Query, Param, Request, UseGuards, BadRequestException } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { JwtAuthGuard } from '../auth/guard/jwtGuard';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -194,6 +194,10 @@ export class ProductController {
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
   async deleteProduct(@Param('id') id: string, @Body('storeId') storeId: string, @Request() req) {
+    if (!storeId) {
+      console.error('[ProductController][deleteProduct] Missing storeId in request body');
+      throw new BadRequestException('storeId is required in the request body');
+    }
     return this.productService.deleteProduct(id, req.user._id, storeId, req.user.role);
   }
 }
