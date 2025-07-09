@@ -43,6 +43,10 @@ export class CreateProductDto {
   @IsString()
   size?: string;
 
+  @IsOptional()
+  @IsNumber()
+  minQuantity?: number;
+
   @IsString()
   @IsNotEmpty() // Make storeId required for product creation
   storeId: string
