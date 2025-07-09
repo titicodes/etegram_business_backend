@@ -44,7 +44,7 @@ export class Product extends Document {
   quantity: number;
 
   @Prop()
-  image?: string;
+  imageUrl?: string;
 
 
   @Prop({ required: false })

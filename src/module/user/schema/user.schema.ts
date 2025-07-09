@@ -54,7 +54,6 @@ export class User {
   @Prop({ unique: true, sparse: true })
   referralCode?: string;
 
-
   @Prop()
   businessType?: string;
 
@@ -72,6 +71,9 @@ export class User {
 
   @Prop()
   fcmToken?: string;
+
+  @Prop()
+  imageUrl?: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

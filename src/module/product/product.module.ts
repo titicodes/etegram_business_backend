@@ -6,23 +6,26 @@ import { ProductController } from './product.controller';
 import { ProductCategoriesRepository } from '../product-category/category.repository';
 import { ProductCategoriesService } from '../product-category/product-category.service';
 import {
-  ProductCategory,
   ProductCategorySchema,
 } from '../product-category/schema/product-category.schema';
 import { ProductCategoryModule } from '../product-category/product-category.module';
 import { Store, StoreSchema } from '../store/schema/store.schema';
 import { StoreModule } from '../store/store.module';
-import { ProductHistoryModule } from '../product-history/product-history.module';
+import { ProductHistorySchema } from './schema/product-history.schema';
+import { DeliveriesSchema } from '../deliveries/schema/deliveries.schema';
+
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: 'Product', schema: ProductSchema },
       { name: 'ProductCategory', schema: ProductCategorySchema },
-      { name:'Store', schema: StoreSchema }
+      { name: 'Store', schema: StoreSchema },
+      { name: 'ProductHistory', schema: ProductHistorySchema },
+      { name: 'Deliveries', schema: DeliveriesSchema }, // Assuming DeliveriesSchema is defined elsewhere
     ]),
     ProductCategoryModule,
     StoreModule,
-     ProductHistoryModule,
+
   ],
   controllers: [ProductController],
   providers: [

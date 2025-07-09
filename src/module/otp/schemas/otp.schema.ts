@@ -8,8 +8,9 @@ export class OTP {
   @Prop({ required: false, unique: true })
   email?: string;
 
-  @Prop({ required: false, unique: true })
+  @Prop({ required: false }) // remove `unique: true`
   phone?: string;
+
 
   @Prop({ required: true })
   code: number;

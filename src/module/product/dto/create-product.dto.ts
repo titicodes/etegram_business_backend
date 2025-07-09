@@ -39,7 +39,7 @@ export class CreateProductDto {
   @Min(0)
   costPrice?: number;
 
-   @IsOptional()
+  @IsOptional()
   @IsString()
   size?: string;
 
@@ -47,9 +47,9 @@ export class CreateProductDto {
   @IsNotEmpty() // Make storeId required for product creation
   storeId: string
 
-  @IsOptional()
   @IsString()
-  image?: string;
+  @IsOptional()
+  imageUrl?: string;
 
   @IsOptional()
   @IsNumber()

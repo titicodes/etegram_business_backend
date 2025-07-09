@@ -27,6 +27,9 @@ import { DeliveriesModule } from './module/deliveries/deliveries.module';
 import { ChatService } from './chat/chat.service';
 import { ChatModule } from './chat/chat.module';
 import { SubscriptionModule } from './module/subscription/subscription.module';
+import { MulterModule } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 
 
 @Module({
@@ -50,6 +53,23 @@ import { SubscriptionModule } from './module/subscription/subscription.module';
     ConfigModule.forRoot({
       isGlobal: true,
       load: [() => ENVIRONMENT],
+    }),
+    MulterModule.register({
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, callback) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          callback(null, `${file.fieldname}-${uniqueSuffix}${extname(file.originalname)}`);
+        },
+      }),
+      fileFilter: (req, file, callback) => {
+        if (!file.mimetype.match(/image\/(jpg|jpeg|png|gif)/)) {
+          callback(new Error('Only image files are allowed'), false);
+        } else {
+          callback(null, true);
+        }
+      },
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
     }),
     ProductModule,
     ProductCategoryModule,

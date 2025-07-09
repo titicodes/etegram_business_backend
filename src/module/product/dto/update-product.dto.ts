@@ -39,4 +39,9 @@ export class UpdateProductDto {
   @IsNumber()
   @Min(0)
   costPrice?: number;
+
+
+  @IsOptional()
+  @IsString()
+  image?: string;
 }

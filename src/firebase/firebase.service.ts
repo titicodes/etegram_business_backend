@@ -84,6 +84,11 @@ export class FirebaseService {
   }
 
   async sendNotification(token: string, title: string, body: string) {
+    if (!token) {
+      console.warn('No FCM token provided');
+      return { success: false, error: 'No FCM token provided' };
+    }
+
     const message: admin.messaging.Message = {
       token,
       notification: {
@@ -91,7 +96,7 @@ export class FirebaseService {
         body,
       },
       android: {
-        priority: "high" as "high", // Explicitly type this
+        priority: 'high' as 'high',
       },
       apns: {
         payload: {
@@ -105,17 +110,21 @@ export class FirebaseService {
         },
       },
     };
-  
+
     try {
       const response = await admin.messaging().send(message);
       console.log('✅ Notification sent successfully:', response);
       return { success: true, response };
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error sending notification:', error);
-      return { success: false, error };
+      if (error.code === 'messaging/invalid-argument' || error.code === 'messaging/registration-token-not-registered') {
+        // Log the error but don't throw to avoid blocking the registration process
+        return { success: false, error: 'Invalid or unregistered FCM token' };
+      }
+      throw error; // Re-throw other errors
     }
   }
-  
+
 
 
 }
