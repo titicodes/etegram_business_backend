@@ -628,16 +628,16 @@ export class UserService implements OnModuleInit {
     await user.save();
     console.log(`Updated FCM token for user ${userId}`);
   }
-
-   async uploadProfileImage(userId: string, file: Express.Multer.File): Promise<UserDocument> {
+  
+ async uploadProfileImage(userId: string, file: Express.Multer.File): Promise<UserDocument> {
     if (!Types.ObjectId.isValid(userId)) {
       console.error('[UserService][uploadProfileImage] Invalid user ID:', { userId });
       throw new BadRequestException('Invalid user ID');
     }
 
-    if (!file) {
-      console.error('[UserService][uploadProfileImage] No file provided:', { userId });
-      throw new BadRequestException('No image file provided');
+    if (!file || !file.buffer || !file.mimetype) {
+      console.error('[UserService][uploadProfileImage] Invalid or missing file:', { userId, file });
+      throw new BadRequestException('No valid image file provided');
     }
 
     try {
@@ -647,11 +647,30 @@ export class UserService implements OnModuleInit {
         throw new NotFoundException('User not found');
       }
 
+      const fileExtension = file.mimetype.split('/')[1]?.toLowerCase();
+      const supportedFormats = ['jpeg', 'jpg', 'png', 'gif', 'webp', 'bmp'];
+      if (!supportedFormats.includes(fileExtension)) {
+        console.error('[UserService][uploadProfileImage] Unsupported file type:', { userId, mimetype: file.mimetype });
+        throw new BadRequestException(`Unsupported file type. Only ${supportedFormats.join(', ')} allowed`);
+      }
+
+      // Validate file size (e.g., max 5MB)
+      const maxFileSize = 5 * 1024 * 1024; // 5MB in bytes
+      if (file.size > maxFileSize) {
+        console.error('[UserService][uploadProfileImage] File too large:', { userId, size: file.size });
+        throw new BadRequestException('File size exceeds 5MB limit');
+      }
+
       const uploadResponse = await imagekit.upload({
         file: file.buffer,
-        fileName: `user_${userId}_${Date.now()}.${file.mimetype.split('/')[1]}`,
+        fileName: `user_${userId}_${Date.now()}.${fileExtension}`,
         folder: '/profile_images',
       });
+
+      if (!uploadResponse.url) {
+        console.error('[UserService][uploadProfileImage] ImageKit upload failed, no URL returned:', { userId });
+        throw new BadRequestException('Failed to upload image to ImageKit');
+      }
 
       user.imageUrl = uploadResponse.url;
       await user.save();
@@ -659,8 +678,8 @@ export class UserService implements OnModuleInit {
       console.log('[UserService][uploadProfileImage] Profile image uploaded:', { userId, imageUrl: uploadResponse.url });
       return user;
     } catch (error) {
-      console.error('[UserService][uploadProfileImage] Error:', error);
-      throw new BadRequestException('Failed to upload profile image');
+      console.error('[UserService][uploadProfileImage] Error:', { userId, error: error.message, stack: error.stack });
+      throw new BadRequestException(`Failed to upload profile image: ${error.message}`);
     }
   }
 }

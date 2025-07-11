@@ -25,8 +25,8 @@ export class Product extends Document {
   @Prop()
   category: string;
 
-  @Prop([String])
-  brands: string[];
+  @Prop()
+  brands: string;
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   owner: Types.ObjectId;

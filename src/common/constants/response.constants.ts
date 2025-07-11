@@ -11,6 +11,7 @@ export const RESPONSE_CONSTANT = {
   },
   OTP: {
     OTP_VALID: 'OTP Valid',
+    OTP_SENT: 'OTP Sent Successfully',
   },
   USER: {
     GET_CURRENT_USER_SUCCESS: 'Records Retrieved Successfully',
