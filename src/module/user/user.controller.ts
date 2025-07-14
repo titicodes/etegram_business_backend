@@ -32,40 +32,87 @@ export class UserController extends CoreController {
         };
     }
 
-    @Post(':userId/profile-image')
+  //   @Post(':userId/profile-image')
+  // @UseGuards(JwtAuthGuard)
+  // @UseInterceptors(FileInterceptor('file', {
+  //   storage: diskStorage({
+  //     destination: './uploads/profile-images',
+  //     filename: (req, file, cb) => {
+  //       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+  //       const fileExt = extname(file.originalname).toLowerCase();
+  //       cb(null, `${file.fieldname}-${uniqueSuffix}${fileExt}`);
+  //     },
+  //   }),
+  //   fileFilter: (req, file, cb) => {
+  //     const allowedTypes = [
+  //       'image/jpeg',
+  //       'image/png',
+  //       'image/gif',
+  //       'image/webp',
+  //       'image/bmp',
+  //     ];
+  //     if (allowedTypes.includes(file.mimetype)) {
+  //       cb(null, true);
+  //     } else {
+  //       cb(new BadRequestException(`Unsupported file type. Only JPEG, PNG, GIF, WebP, or BMP allowed`), false);
+  //     }
+  //   },
+  //   limits: {
+  //     fileSize: 5 * 1024 * 1024, // 5MB limit
+  //   },
+  // }))
+
+
+  // async uploadProfileImage(@Param('userId') userId: string, @UploadedFile() file: Express.Multer.File) {
+  //   return this.userService.uploadProfileImage(userId, file);
+  // }
+
+@Post(':userId/profile-image')
   @UseGuards(JwtAuthGuard)
-  @UseInterceptors(FileInterceptor('file', {
-    storage: diskStorage({
-      destination: './uploads/profile-images',
-      filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        const fileExt = extname(file.originalname).toLowerCase();
-        cb(null, `${file.fieldname}-${uniqueSuffix}${fileExt}`);
+  @UseInterceptors(
+    FileInterceptor('file', {
+      fileFilter: (req, file, cb) => {
+        console.log('[UserController][FileInterceptor] Incoming request:', {
+          headers: req.headers,
+          body: req.body,
+          file: file ? {
+            originalname: file.originalname,
+            mimetype: file.mimetype,
+            size: file.size,
+          } : 'no file',
+        });
+        if (!file) {
+          console.error('[UserController][FileInterceptor] No file provided');
+          cb(new BadRequestException('No file provided'), false);
+          return;
+        }
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'];
+        if (allowedTypes.includes(file.mimetype)) {
+          cb(null, true);
+        } else {
+          console.error('[UserController][FileInterceptor] Unsupported file type:', file.mimetype);
+          cb(new BadRequestException(`Unsupported file type. Only JPEG, PNG, GIF, WebP, or BMP allowed`), false);
+        }
       },
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
     }),
-    fileFilter: (req, file, cb) => {
-      const allowedTypes = [
-        'image/jpeg',
-        'image/png',
-        'image/gif',
-        'image/webp',
-        'image/bmp',
-      ];
-      if (allowedTypes.includes(file.mimetype)) {
-        cb(null, true);
-      } else {
-        cb(new BadRequestException(`Unsupported file type. Only JPEG, PNG, GIF, WebP, or BMP allowed`), false);
-      }
-    },
-    limits: {
-      fileSize: 5 * 1024 * 1024, // 5MB limit
-    },
-  }))
+  )
   async uploadProfileImage(@Param('userId') userId: string, @UploadedFile() file: Express.Multer.File) {
+    console.log('[UserController][uploadProfileImage] File received:', {
+      userId,
+      file: file ? {
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size,
+        buffer: file.buffer ? 'present' : 'missing',
+      } : 'no file',
+    });
+    if (!file) {
+      console.error('[UserController][uploadProfileImage] No file received:', { userId });
+      throw new BadRequestException('No valid image file provided');
+    }
     return this.userService.uploadProfileImage(userId, file);
   }
-
-
 
     @Post(':id/fcm-token')
     async updateUserFcmToken(@Param('id') userId: string, @Body('fcmToken') fcmToken: string) {
