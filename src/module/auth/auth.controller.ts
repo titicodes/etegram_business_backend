@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Post,
   Request,
   UseGuards,
@@ -23,12 +25,16 @@ export class AuthController {
   ) { }
 
   @Post('register')
+  @HttpCode(HttpStatus.OK)
   async register(@Body() createUserDto: CreateUserDto) {
+    console.log('[AuthController][register] Received request:', createUserDto);
     return this.authService.register(createUserDto);
   }
 
   @Post('login')
+  @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginDto) {
+    console.log('[AuthController][login] Received request:', loginDto);
     return this.authService.login(loginDto);
   }
 

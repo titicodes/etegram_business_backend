@@ -93,15 +93,25 @@ export class AuthService {
     };
   }
 
+  // auth.service.ts
   async register(payload: CreateUserDto) {
     console.log('[AuthService][register] Registering user:', { email: payload.email });
-
-    const existingUser = await this.userService.getUserByEmail(payload.email);
+    let existingUser: UserDocument | null = null;
+    try {
+      existingUser = await this.userService.getUserByEmail(payload.email);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        console.log('[AuthService][register] No existing user found, proceeding to create:', { email: payload.email });
+      } else {
+        console.error('[AuthService][register] Unexpected error checking user:', { error: error.message });
+        throw error;
+      }
+    }
     if (existingUser) {
       console.error('[AuthService][register] User already exists:', { email: payload.email });
-      throw new ConflictException(`User with email ${payload.email} already exists`); // HTTP 409
+      throw new ConflictException(`User with email ${payload.email} already exists`);
     }
-
+    console.log('[AuthService][register] Creating new user');
     const user = await this.userService.createUser(payload);
     console.log('[AuthService][register] User created:', { userId: user.customer._id, email: user.customer.email });
 
