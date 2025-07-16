@@ -28,10 +28,10 @@ export class CreateUserDto {
   @ApiProperty({ description: 'The password of the user' })
   @IsNotEmpty()
   @IsString()
-  @MinLength(8)
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/, {
-    message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
-  })
+ // @MinLength(8)
+  // @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/, {
+  //   message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
+  // })
   password: string;
 
   @ApiProperty({ description: 'The first name of the user' })

@@ -41,7 +41,7 @@ export class UpdateProductDto {
   costPrice?: number;
 
 
-  @IsOptional()
   @IsString()
-  image?: string;
+  @IsOptional()
+  imageUrl?: string;
 }

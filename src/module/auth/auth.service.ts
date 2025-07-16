@@ -32,96 +32,98 @@ export class AuthService {
   ) { }
 
   async login(dto: LoginDto) {
-    try {
-      console.log('[AuthService][login] Attempting login for:', { email: dto.email });
+    console.log('[AuthService][login] Attempting login for:', { email: dto.email });
 
-      const user = await this.userService.getUserByEmailIncludePassword(dto.email);
-      if (!user) {
-        console.error('[AuthService][login] User not found:', { email: dto.email });
-        throw new NotFoundException('User not found');
-      }
-
-      const passwordMatch = await BaseHelper.compareHashedData(dto.password.trim(), user.password);
-      if (!passwordMatch) {
-        console.error('[AuthService][login] Password mismatch for:', { email: dto.email });
-        throw new BadRequestException('Incorrect password');
-      }
-
-      const tokenPayload: payload = {
-        _id: user._id.toString(),
-        email: user.email,
-        role: user.role || [],
-      };
-      const accessToken = this.jwtService.sign(tokenPayload, {
-        secret: process.env.JWT_SECRET,
-        expiresIn: process.env.JWT_EXPIRATION_TIME || '15m',
-      });
-
-      const refreshToken = this.jwtService.sign(
-        { _id: user._id.toString() },
-        {
-          secret: process.env.JWT_REFRESH_SECRET,
-          expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME || '7d',
-        },
-      );
-
-      await this.userService.saveRefreshToken(user._id.toString(), refreshToken);
-
-      console.log('[AuthService][login] Login successful:', {
-        userId: user._id,
-        email: user.email,
-        role: user.role,
-        accessToken: accessToken.substring(0, 20) + '...',
-      });
-
-      return {
-        success: true,
-        user: {
-          _id: user._id,
-          email: user.email,
-          phoneNumber: user.phoneNumber,
-          stores: user.stores,
-          emailVerified: user.emailVerified,
-          role: user.role,
-        },
-        accessToken,
-        refreshToken,
-      };
-    } catch (error) {
-      console.error('[AuthService][login] Login error:', error);
-      throw new BadRequestException(error.message || 'Login failed');
+    const user = await this.userService.getUserByEmailIncludePassword(dto.email);
+    if (!user) {
+      console.error('[AuthService][login] User not found:', { email: dto.email });
+      throw new NotFoundException('User not found'); // HTTP 404
     }
+
+    const passwordMatch = await BaseHelper.compareHashedData(dto.password.trim(), user.password);
+    if (!passwordMatch) {
+      console.error('[AuthService][login] Password mismatch for:', { email: dto.email });
+      throw new UnauthorizedException('Incorrect password'); // HTTP 401
+    }
+
+    if (!user.emailVerified) {
+      console.warn('[AuthService][login] Email not verified:', { email: dto.email });
+      throw new UnauthorizedException('Email not verified'); // HTTP 401
+    }
+
+    const tokenPayload: payload = {
+      _id: user._id.toString(),
+      email: user.email,
+      role: user.role || [],
+    };
+    const accessToken = this.jwtService.sign(tokenPayload, {
+      secret: process.env.JWT_SECRET,
+      expiresIn: process.env.JWT_EXPIRATION_TIME || '15m',
+    });
+
+    const refreshToken = this.jwtService.sign(
+      { _id: user._id.toString() },
+      {
+        secret: process.env.JWT_REFRESH_SECRET,
+        expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME || '7d',
+      },
+    );
+
+    await this.userService.saveRefreshToken(user._id.toString(), refreshToken);
+
+    console.log('[AuthService][login] Login successful:', {
+      userId: user._id,
+      email: user.email,
+      role: user.role,
+      accessToken: accessToken.substring(0, 20) + '...',
+    });
+
+    return {
+      success: true,
+      user: {
+        _id: user._id,
+        email: user.email,
+        phoneNumber: user.phoneNumber,
+        stores: user.stores,
+        emailVerified: user.emailVerified,
+        role: user.role,
+      },
+      accessToken,
+      refreshToken,
+    };
   }
 
   async register(payload: CreateUserDto) {
-    try {
-      console.log('[AuthService][register] Registering user:', { email: payload.email });
-      const user = await this.userService.createUser(payload);
-      console.log('[AuthService][register] User created:', { userId: user.customer._id, email: user.customer.email });
+    console.log('[AuthService][register] Registering user:', { email: payload.email });
 
-      await this.otpService.sendOTP({
-        email: user.customer.email,
-        type: OtpTypeEnum.VERIFY_EMAIL,
-        phone: user.customer.phoneNumber,
-      });
-
-      return {
-        success: true,
-        user: {
-          _id: user.customer._id,
-          email: user.customer.email,
-          phoneNumber: user.customer.phoneNumber,
-          stores: user.customer.stores,
-          emailVerified: user.customer.emailVerified,
-          role: user.customer.role,
-        },
-        accessToken: user.accessToken,
-        refreshToken: user.refreshToken,
-      };
-    } catch (error) {
-      console.error('[AuthService][register] Registration error:', error);
-      throw new BadRequestException(error.message || 'Registration failed');
+    const existingUser = await this.userService.getUserByEmail(payload.email);
+    if (existingUser) {
+      console.error('[AuthService][register] User already exists:', { email: payload.email });
+      throw new ConflictException(`User with email ${payload.email} already exists`); // HTTP 409
     }
+
+    const user = await this.userService.createUser(payload);
+    console.log('[AuthService][register] User created:', { userId: user.customer._id, email: user.customer.email });
+
+    await this.otpService.sendOTP({
+      email: user.customer.email,
+      type: OtpTypeEnum.VERIFY_EMAIL,
+      phone: user.customer.phoneNumber,
+    });
+
+    return {
+      success: true,
+      user: {
+        _id: user.customer._id,
+        email: user.customer.email,
+        phoneNumber: user.customer.phoneNumber,
+        stores: user.customer.stores,
+        emailVerified: user.customer.emailVerified,
+        role: user.customer.role,
+      },
+      accessToken: user.accessToken,
+      refreshToken: user.refreshToken,
+    };
   }
 
   async validateToken(token: string): Promise<UserDocument> {
@@ -206,6 +208,7 @@ export class AuthService {
         type: OtpTypeEnum.RESET_PASSWORD,
       });
       console.log('[AuthService][sendPasswordResetEmail] Password reset OTP sent:', { email: payload.email });
+      return { message: 'Password reset OTP sent successfully' };
     } catch (error) {
       console.error('[AuthService][sendPasswordResetEmail] Error:', error);
       throw new BadRequestException(error.message || 'Failed to send password reset email');
@@ -247,7 +250,7 @@ export class AuthService {
       const user = await this.userService.getUserByEmail(email);
       if (!user) {
         console.error('[AuthService][verifyEmail] User not found:', { email });
-        throw new BadRequestException('Invalid email');
+        throw new NotFoundException('User not found');
       }
 
       if (user.emailVerified) {
