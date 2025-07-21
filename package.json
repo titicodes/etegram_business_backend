@@ -29,7 +29,7 @@
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^10.4.17",
     "@nestjs/schedule": "^6.0.0",
-    "@nestjs/swagger": "^11.0.3",
+    "@nestjs/swagger": "^11.2.0",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^2.4.3",
     "class-transformer": "^0.5.1",
@@ -53,6 +53,7 @@
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
     "sib-api-v3-sdk": "^8.5.0",
+    "swagger-ui-express": "^5.0.1",
     "twilio": "^5.4.3"
   },
   "devDependencies": {

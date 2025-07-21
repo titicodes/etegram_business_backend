@@ -2,6 +2,9 @@ import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import helmet from 'helmet';
 import * as express from 'express';
+import * as swaggerUi from 'swagger-ui-express';
+import * as fs from 'fs';
+import * as yaml from 'js-yaml';
 import { ValidationPipe } from '@nestjs/common';
 import { ResponseTransformerInterceptor } from './common/interceptors/response.interceptor';
 import { HttpExceptionFilter } from './common/filter/filter';
@@ -10,6 +13,9 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const yamlFile = fs.readFileSync('./admin-api.yaml', 'utf8');
+  const swaggerDocument = yaml.load(yamlFile);
+  app.use('/swagger', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
   // CORS setup
   app.enableCors({
