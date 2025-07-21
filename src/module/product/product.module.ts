@@ -33,5 +33,6 @@ import { DeliveriesSchema } from '../deliveries/schema/deliveries.schema';
     ProductCategoriesRepository,
     ProductCategoriesService,
   ],
+  exports:[ProductService]
 })
 export class ProductModule { }

@@ -30,6 +30,7 @@ import { SubscriptionModule } from './module/subscription/subscription.module';
 import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import { AdminModule } from './module/admin/admin.module';
 
 
 @Module({
@@ -86,7 +87,8 @@ import { extname } from 'path';
     ExpenseModule,
     DeliveriesModule,
     SubscriptionModule,
-    ChatModule
+    ChatModule,
+    AdminModule
   ],
   controllers: [AppController],
   providers: [AppService],

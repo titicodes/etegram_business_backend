@@ -23,5 +23,6 @@ import { UserModule } from '../user/user.module';
   ],
   controllers: [CheckoutController],
   providers: [CheckoutService, InvoiceService],
+  exports:[CheckoutService]
 })
 export class CheckoutModule {}

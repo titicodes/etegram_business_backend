@@ -1,0 +1,1424 @@
+
+openapi: 3.0.3
+info:
+  title: Admin Panel API
+  description: API for managing customers, stores, products, inventories, subscriptions, and sales records in the admin dashboard.
+  version: 1.0.2
+servers:
+  - url: /api
+    description: Main API server
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: Unique identifier for the user
+        email:
+          type: string
+          format: email
+          description: User's email address
+        firstName:
+          type: string
+          description: User's first name
+        lastName:
+          type: string
+          description: User's last name
+        phoneNumber:
+          type: string
+          description: User's phone number
+        country:
+          type: string
+          description: User's country
+        state:
+          type: string
+          description: User's state
+        city:
+          type: string
+          description: User's city
+        area:
+          type: string
+          description: User's area
+        currency:
+          type: string
+          description: Preferred currency
+        businessType:
+          type: string
+          description: Type of business
+        businessName:
+          type: string
+          description: Name of the business
+        role:
+          type: array
+          items:
+            type: string
+            enum: [STORE_OWNER, ADMIN]
+          description: User roles
+        stores:
+          type: array
+          items:
+            type: string
+          description: List of store IDs associated with the user
+        imageUrl:
+          type: string
+          description: URL of the user's profile image
+        fcmToken:
+          type: string
+          description: Firebase Cloud Messaging token
+      required:
+        - _id
+        - email
+        - firstName
+        - lastName
+        - role
+    CreateUserDto:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phoneNumber:
+          type: string
+        country:
+          type: string
+        state:
+          type: string
+        city:
+          type: string
+        area:
+          type: string
+        currency:
+          type: string
+        businessType:
+          type: string
+        businessName:
+          type: string
+      required:
+        - email
+        - password
+        - firstName
+        - lastName
+    Product:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: Unique identifier for the product
+        name:
+          type: string
+          description: Product name
+        code:
+          type: string
+          description: Unique product code
+        price:
+          type: number
+          description: Product price
+        costPrice:
+          type: number
+          description: Product cost price
+        quantity:
+          type: number
+          description: Available quantity
+        stock:
+          type: number
+          description: Stock level
+        categoryId:
+          type: string
+          description: Category ID
+        category:
+          type: string
+          description: Category name
+        store:
+          type: string
+          description: Store ID
+        owner:
+          type: string
+          description: Owner ID
+        imageUrl:
+          type: string
+          description: URL of the product image
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+        expiryDate:
+          type: string
+          format: date-time
+          description: Expiry date of the product
+      required:
+        - _id
+        - name
+        - code
+        - price
+        - quantity
+        - store
+        - owner
+    CreateProductDto:
+      type: object
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        price:
+          type: number
+        costPrice:
+          type: number
+        quantity:
+          type: number
+        description:
+          type: string
+        category:
+          type: string
+      required:
+        - name
+        - code
+        - price
+        - quantity
+    UpdateProductDto:
+      type: object
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        price:
+          type: number
+        costPrice:
+          type: number
+        quantity:
+          type: number
+        description:
+          type: string
+        category:
+          type: string
+    FilterProductDto:
+      type: object
+      properties:
+        category:
+          type: string
+          description: Category name or ID
+        search:
+          type: string
+          description: Search term for name, description, or code
+    Subscription:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: Unique identifier for the subscription
+        user:
+          type: string
+          description: User ID associated with the subscription
+        status:
+          type: string
+          enum: [TRIAL, PREMIUM, EXPIRED, CANCELLED]
+          description: Subscription status
+        subscriptionType:
+          type: string
+          enum: [NONE, MONTHLY, YEARLY]
+          description: Type of subscription
+        trialStartDate:
+          type: string
+          format: date-time
+          description: Trial start date
+        trialEndDate:
+          type: string
+          format: date-time
+          description: Trial end date
+        startDate:
+          type: string
+          format: date-time
+          description: Subscription start date
+        endDate:
+          type: string
+          format: date-time
+          description: Subscription end date
+        isActive:
+          type: boolean
+          description: Whether the subscription is active
+      required:
+        - _id
+        - user
+        - status
+        - subscriptionType
+        - isActive
+    Store:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: Unique identifier for the store
+        name:
+          type: string
+          description: Store name
+        owner:
+          type: string
+          description: Owner ID
+        parentStore:
+          type: string
+          description: Parent store ID (for branches)
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+      required:
+        - _id
+        - name
+        - owner
+    CreateStoreDto:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Store name
+        description:
+          type: string
+          description: Store description (optional)
+      required:
+        - name
+    UpdateStoreDto:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Store name
+        description:
+          type: string
+          description: Store description (optional)
+    Checkout:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: Unique identifier for the checkout
+        cartItems:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                description: Product code
+              quantity:
+                type: number
+                description: Quantity purchased
+              subtotal:
+                type: number
+                description: Subtotal for the item
+              product:
+                $ref: '#/components/schemas/Product'
+            required:
+              - code
+              - quantity
+              - subtotal
+              - product
+        totalPrice:
+          type: number
+          description: Total price before discount
+        discountedPrice:
+          type: number
+          description: Price after discount
+        totalPriceWithTax:
+          type: number
+          description: Final price including tax
+        user:
+          type: string
+          description: User ID who performed the checkout
+        status:
+          type: string
+          enum: [Pending, Processing, Completed]
+          description: Order status
+        paymentMethod:
+          type: string
+          description: Payment method used
+        store:
+          type: string
+          description: Store ID
+        isCredit:
+          type: boolean
+          description: Whether the sale is on credit
+        customerId:
+          type: string
+          description: Customer ID (for credit sales)
+        supplierId:
+          type: string
+          description: Supplier ID (for supplier-related transactions)
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+      required:
+        - _id
+        - cartItems
+        - totalPrice
+        - discountedPrice
+        - totalPriceWithTax
+        - user
+        - status
+        - store
+    CreateCheckoutDto:
+      type: object
+      properties:
+        cart:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                description: Product code
+              quantity:
+                type: number
+                description: Quantity to purchase
+            required:
+              - code
+              - quantity
+        discount:
+          type: number
+          description: Discount percentage (optional)
+          default: 0
+        tax:
+          type: number
+          description: Tax percentage (optional)
+          default: 0
+        paymentMethod:
+          type: string
+          description: Payment method
+        storeId:
+          type: string
+          description: Store ID
+        isCredit:
+          type: boolean
+          description: Whether the sale is on credit
+          default: false
+        customerId:
+          type: string
+          description: Customer ID (required for credit sales)
+        supplierId:
+          type: string
+          description: Supplier ID (optional)
+      required:
+        - cart
+        - paymentMethod
+        - storeId
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+        statusCode:
+          type: number
+      required:
+        - message
+        - statusCode
+security:
+  - bearerAuth: []
+paths:
+  /admin/users:
+    post:
+      summary: Create a new user
+      description: Creates a new user with the specified details, including store owner role.
+      operationId: createUser
+      tags:
+        - Users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserDto'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customer:
+                    $ref: '#/components/schemas/User'
+                  accessToken:
+                    type: string
+                    description: JWT access token
+                  refreshToken:
+                    type: string
+                    description: JWT refresh token
+        '400':
+          description: Bad request (e.g., invalid input)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict (e.g., email already exists)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/users/{id}:
+    get:
+      summary: Get user by ID
+      description: Retrieves a user by their ID, including associated stores.
+      operationId: findUserById
+      tags:
+        - Users
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+      responses:
+        '200':
+          description: User retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid user ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      summary: Update user by ID
+      description: Updates user details by their ID.
+      operationId: updateUserById
+      tags:
+        - Users
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                phoneNumber:
+                  type: string
+                country:
+                  type: string
+                state:
+                  type: string
+                city:
+                  type: string
+                area:
+                  type: string
+                currency:
+                  type: string
+                businessType:
+                  type: string
+                businessName:
+                  type: string
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid user ID or data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/stores:
+    post:
+      summary: Create a new store
+      description: Creates a new store for a user.
+      operationId: createStore
+      tags:
+        - Stores
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStoreDto'
+      responses:
+        '201':
+          description: Store created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Store'
+                  message:
+                    type: string
+                    example: Store created successfully
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Store name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/stores/branch:
+    post:
+      summary: Create a store branch
+      description: Creates a branch for an existing store.
+      operationId: createStoreBranch
+      tags:
+        - Stores
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Branch name
+                description:
+                  type: string
+                  description: Branch description (optional)
+                parentStoreId:
+                  type: string
+                  description: Parent store ID
+              required:
+                - name
+                - parentStoreId
+      responses:
+        '201':
+          description: Branch created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Store'
+                  message:
+                    type: string
+                    example: Branch created successfully
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Parent store not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Branch name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/stores/owner/{ownerId}:
+    get:
+      summary: Get stores by owner
+      description: Retrieves all stores owned by a user.
+      operationId: findStoresByOwner
+      tags:
+        - Stores
+      parameters:
+        - name: ownerId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Owner ID
+      responses:
+        '200':
+          description: Stores retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Store'
+        '400':
+          description: Invalid owner ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/stores/{id}:
+    get:
+      summary: Get store by ID
+      description: Retrieves a store by its ID.
+      operationId: findStoreById
+      tags:
+        - Stores
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Store ID
+      responses:
+        '200':
+          description: Store retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Store'
+        '400':
+          description: Invalid store ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Store not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      summary: Update store
+      description: Updates a store's details.
+      operationId: updateStore
+      tags:
+        - Stores
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Store ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStoreDto'
+      responses:
+        '200':
+          description: Store updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Store'
+        '400':
+          description: Invalid store ID or data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Store not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Delete store
+      description: Deletes a store and removes it from the associated user.
+      operationId: deleteStore
+      tags:
+        - Stores
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Store ID
+      responses:
+        '200':
+          description: Store deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Store deleted successfully
+        '400':
+          description: Invalid store ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Store not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/products/{storeId}:
+    post:
+      summary: Add a new product
+      description: Creates a new product in a store.
+      operationId: addProduct
+      tags:
+        - Products
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Store ID
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                code:
+                  type: string
+                price:
+                  type: number
+                costPrice:
+                  type: number
+                quantity:
+                  type: number
+                description:
+                  type: string
+                category:
+                  type: string
+                file:
+                  type: string
+                  format: binary
+                  description: Product image (optional; JPEG, PNG, GIF, WEBP, BMP)
+              required:
+                - name
+                - code
+                - price
+                - quantity
+      responses:
+        '201':
+          description: Product created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          description: Invalid input or store ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized access
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Product code already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/products/{id}/{storeId}:
+    get:
+      summary: Get product by ID
+      description: Retrieves a product by its ID and store ID.
+      operationId: findProductById
+      tags:
+        - Products
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Product ID
+        - name: storeId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Store ID
+      responses:
+        '200':
+          description: Product retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          description: Invalid product or store ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      summary: Update product
+      description: Updates a product's details.
+      operationId: updateProduct
+      tags:
+        - Products
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Product ID
+        - name: storeId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Store ID
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProductDto'
+      responses:
+        '200':
+          description: Product updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          description: Invalid product or store ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized access
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/products/{id}:
+    delete:
+      summary: Delete product
+      description: Deletes a product from a store.
+      operationId: deleteProduct
+      tags:
+        - Products
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Product ID
+        - name: storeId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Store ID
+      responses:
+        '200':
+          description: Product deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: boolean
+                    example: true
+        '400':
+          description: Invalid product or store ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized access
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/products/filter/{storeId}:
+    get:
+      summary: Get filtered products
+      description: Retrieves products based on filters like category or search term.
+      operationId: getFilteredProducts
+      tags:
+        - Products
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Store ID
+        - name: category
+          in: query
+          schema:
+            type: string
+          description: Category name or ID
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search term for name, description, or code
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+          description: Number of items per page
+      responses:
+        '200':
+          description: Products retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                  totalPages:
+                    type: integer
+        '400':
+          description: Invalid store ID or filter parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/subscriptions:
+    post:
+      summary: Create a new subscription
+      description: Creates a trial subscription for a user.
+      operationId: createSubscription
+      tags:
+        - Subscriptions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+                  description: User ID to create subscription for
+              required:
+                - userId
+      responses:
+        '201':
+          description: Subscription created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+        '400':
+          description: Invalid user ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/subscriptions/{userId}/premium:
+    post:
+      summary: Subscribe user to premium plan
+      description: Upgrades a user's subscription to a premium plan (MONTHLY or YEARLY).
+      operationId: subscribeToPremium
+      tags:
+        - Subscriptions
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                subscriptionType:
+                  type: string
+                  enum: [MONTHLY, YEARLY]
+                  description: Type of premium subscription
+              required:
+                - subscriptionType
+      responses:
+        '200':
+          description: User subscribed to premium successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+        '400':
+          description: Invalid user ID or subscription type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Subscription not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/subscriptions/{userId}:
+    get:
+      summary: Get subscription status
+      description: Retrieves the subscription status for a user.
+      operationId: getSubscriptionStatus
+      tags:
+        - Subscriptions
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+      responses:
+        '200':
+          description: Subscription status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+        '400':
+          description: Invalid user ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Subscription not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Cancel subscription
+      description: Cancels a user's subscription.
+      operationId: cancelSubscription
+      tags:
+        - Subscriptions
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+      responses:
+        '200':
+          description: Subscription canceled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+        '400':
+          description: Invalid user ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Subscription not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/checkouts/sales:
+    get:
+      summary: Get sales history
+      description: Retrieves the sales history for a store, optionally filtered by product.
+      operationId: getSalesHistory
+      tags:
+        - Sales
+      parameters:
+        - name: storeId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Store ID
+        - name: productId
+          in: query
+          schema:
+            type: string
+          description: Product ID (optional)
+      responses:
+        '200':
+          description: Sales history retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Checkout'
+        '400':
+          description: Invalid store or product ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized access
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Store not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/checkouts/owing:
+    get:
+      summary: Get owing records
+      description: Retrieves credit sales records involving suppliers for a store.
+      operationId: getOwingRecords
+      tags:
+        - Sales
+      parameters:
+        - name: storeId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Store ID
+        - name: supplierId
+          in: query
+          schema:
+            type: string
+          description: Supplier ID (optional)
+      responses:
+        '200':
+          description: Owing records retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Checkout'
+        '400':
+          description: Invalid store or supplier ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized access
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Store not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/checkouts/owed:
+    get:
+      summary: Get owed records
+      description: Retrieves credit sales records owed by customers for a store.
+      operationId: getOwedRecords
+      tags:
+        - Sales
+      parameters:
+        - name: storeId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Store ID
+        - name: customerId
+          in: query
+          schema:
+            type: string
+          description: Customer ID (optional)
+      responses:
+        '200':
+          description: Owed records retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Checkout'
+        '400':
+          description: Invalid store or customer ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized access
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Store not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/checkouts/{orderId}/status:
+    patch:
+      summary: Update order status
+      description: Updates the status of a checkout order (Processing or Completed).
+      operationId: updateOrderStatus
+      tags:
+        - Sales
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Order ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [Processing, Completed]
+                  description: New order status
+              required:
+                - status
+      responses:
+        '200':
+          description: Order status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Checkout'
+        '400':
+          description: Invalid order ID or status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized access
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Order or store not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+tags:
+  - name: Users
+    description: Operations related to user management
+  - name: Products
+    description: Operations related to product management
+  - name: Stores
+    description: Operations related to store management
+  - name: Subscriptions
+    description: Operations related to subscription management
+  - name: Sales
+    description: Operations related to sales and checkout management
