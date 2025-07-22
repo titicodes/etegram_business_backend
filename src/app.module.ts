@@ -24,8 +24,8 @@ import { PaymentMethodModule } from './module/payment-method/payment-method.modu
 import { CustomerModule } from './module/customer/customer.module';
 import { ExpenseModule } from './module/expenses/expenses.module';
 import { DeliveriesModule } from './module/deliveries/deliveries.module';
-import { ChatService } from './chat/chat.service';
-import { ChatModule } from './chat/chat.module';
+import { ChatService } from './module/chat/chat.service';
+import { ChatModule } from './module/chat/chat.module';
 import { SubscriptionModule } from './module/subscription/subscription.module';
 import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';

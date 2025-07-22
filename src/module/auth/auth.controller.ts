@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Put,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -22,7 +23,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly storeService: StoreService,
-  ) { }
+  ) {}
 
   @Post('register')
   @HttpCode(HttpStatus.OK)
@@ -90,5 +91,18 @@ export class AuthController {
   @Post('refresh')
   async refreshToken(@Body('refreshToken') refreshToken: string) {
     return this.authService.refreshToken(refreshToken);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put('user/change-password/:userId')
+  async changePassword(
+    @Request() req,
+    @Body() body: { oldPassword: string; newPassword: string },
+  ) {
+    return this.authService.changePassword(
+      req.params.userId,
+      body.oldPassword,
+      body.newPassword,
+    );
   }
 }

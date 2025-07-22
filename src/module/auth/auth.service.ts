@@ -286,6 +286,41 @@ export class AuthService {
     }
   }
 
+ async changePassword(userId: string, oldPassword: string, newPassword: string) {
+    try {
+      console.log('[AuthService][changePassword] Attempting to change password for user:', { userId });
+
+      const user = await this.userService.getUserByIdIncludePassword(userId);
+      if (!user) {
+        console.error('[AuthService][changePassword] User not found:', { userId });
+        throw new NotFoundException('User not found');
+      }
+
+      const passwordMatch = await BaseHelper.compareHashedData(oldPassword, user.password);
+      if (!passwordMatch) {
+        console.error('[AuthService][changePassword] Incorrect old password:', { userId });
+        throw new UnauthorizedException('Incorrect old password');
+      }
+
+      const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
+      if (!passwordRegex.test(newPassword)) {
+        console.error('[AuthService][changePassword] New password does not meet requirements:', { userId });
+        throw new BadRequestException('New password must be at least 8 characters, include a capital letter, a number, and a special character');
+      }
+
+      const hashedNewPassword = await BaseHelper.hashData(newPassword);
+      await this.userService.updateUserById(userId, {
+        password: hashedNewPassword,
+      });
+
+      console.log('[AuthService][changePassword] Password changed successfully:', { userId });
+      return { message: 'Password changed successfully' };
+    } catch (error) {
+      console.error('[AuthService][changePassword] Error:', error);
+      throw new BadRequestException(error.message || 'Failed to change password');
+    }
+  }
+
   async getUserByAccessToken(accessToken: string) {
     try {
       console.log('[AuthService][getUserByAccessToken] Fetching user with token:', accessToken.substring(0, 20) + '...');

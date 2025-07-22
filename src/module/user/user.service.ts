@@ -109,6 +109,23 @@ export class UserService implements OnModuleInit {
     return user;
   }
 
+  async getUserByIdIncludePassword(userId: string): Promise<UserDocument> {
+    const user = await this.userModel.findById(userId).select('+password').exec();
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return user;
+  }
+
+  async updateUserById(userId: string, update: Partial<User>): Promise<UserDocument> {
+    const user = await this.userModel.findByIdAndUpdate(userId, update, { new: true }).exec();
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return user;
+  }
+
+
   async findByIdAndUpdate(id: string, data: any): Promise<UserDocument> {
     if (!Types.ObjectId.isValid(id)) {
       console.error('[UserService][findByIdAndUpdate] Invalid user ID:', { id });
