@@ -45,13 +45,14 @@ export class ProductService {
     private readonly categoryService: ProductCategoriesService,
   ) { }
 
+
   async addProduct(
     createProductDto: CreateProductDto,
     ownerId: string,
     storeId: string,
     userRole: UserRoleEnum[],
     imageUrl?: string,
-    file?: Express.Multer.File
+    file?: Express.Multer.File,
   ): Promise<ProductDocument> {
     try {
       console.log('[ProductService][addProduct] Attempting to add product:', {
@@ -61,6 +62,7 @@ export class ProductService {
         userRole,
         imageUrl,
         hasFile: !!file,
+        fileDetails: file ? { originalname: file.originalname, mimetype: file.mimetype, size: file.size } : null,
       });
 
       if (!userRole.includes(UserRoleEnum.STORE_OWNER) && !userRole.includes(UserRoleEnum.ADMIN)) {
@@ -108,18 +110,24 @@ export class ProductService {
 
       let finalImageUrl: string | undefined;
       if (file) {
+        console.log('[ProductService][addProduct] Uploading file to ImageKit:', {
+          fileName: `product_${createProductDto.code}_${Date.now()}.${file.mimetype.split('/')[1]}`,
+          folder: '/product_images',
+        });
         const uploadResponse = await imagekit.upload({
           file: file.buffer,
           fileName: `product_${createProductDto.code}_${Date.now()}.${file.mimetype.split('/')[1]}`,
           folder: '/product_images',
         });
         finalImageUrl = uploadResponse.url;
+        console.log('[ProductService][addProduct] Image uploaded successfully:', { imageUrl: finalImageUrl });
       } else if (imageUrl) {
         if (!isURL(imageUrl)) {
           console.error('[ProductService][addProduct] Invalid image URL:', { imageUrl });
           throw new BadRequestException('Invalid image URL');
         }
         try {
+          console.log('[ProductService][addProduct] Downloading external image:', { imageUrl });
           const imageBuffer = await this.downloadImage(imageUrl);
           const uploadResponse = await imagekit.upload({
             file: imageBuffer,
@@ -127,10 +135,13 @@ export class ProductService {
             folder: '/product_images',
           });
           finalImageUrl = uploadResponse.url;
+          console.log('[ProductService][addProduct] External image uploaded successfully:', { imageUrl: finalImageUrl });
         } catch (error) {
           console.error('[ProductService][addProduct] Failed to upload external image:', error);
           // Proceed without image if download fails
         }
+      } else {
+        console.log('[ProductService][addProduct] No image provided for upload');
       }
 
       const newProduct = new this.productModel({
@@ -1137,6 +1148,7 @@ export class ProductService {
     }
 
     try {
+      console.log('[ProductService][uploadProductImage] Looking up product:', { productId, storeId, ownerId });
       const product = await this.productModel
         .findOne({ _id: productId, store: storeId, createdBy: ownerId })
         .exec();
@@ -1145,6 +1157,10 @@ export class ProductService {
         throw new NotFoundException('Product not found or you do not have permission');
       }
 
+      console.log('[ProductService][uploadProductImage] Uploading file to ImageKit:', {
+        fileName: `product_${productId}_${Date.now()}.${file.mimetype.split('/')[1]}`,
+        folder: '/product_images',
+      });
       const uploadResponse = await imagekit.upload({
         file: file.buffer,
         fileName: `product_${productId}_${Date.now()}.${file.mimetype.split('/')[1]}`,

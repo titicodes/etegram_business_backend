@@ -88,7 +88,7 @@ export class CheckoutService {
       throw new BadRequestException('Store not found or you do not have permission');
     }
 
-    let product = await this.productModel
+    const product = await this.productModel
       .findOne({ code, store: { $in: [storeId, new Types.ObjectId(storeId)] } })
       .exec();
 
@@ -104,6 +104,9 @@ export class CheckoutService {
 
     const existingCartItem = cart.find((item) => item.code === code);
     if (existingCartItem) {
+      if (existingCartItem.quantity + 1 > product.quantity) {
+        throw new BadRequestException(`Insufficient stock for ${product.name}. Available: ${product.quantity}`);
+      }
       existingCartItem.quantity++;
     } else {
       cart.push({ code, quantity: 1 });
@@ -111,7 +114,10 @@ export class CheckoutService {
 
     await this.firebaseService.updateProductStock(product);
     this.logger.log(`Product scanned successfully: Code=${code}, Cart=${JSON.stringify(cart)}`);
-    return { product, cart };
+    return {
+      product,
+      cart,
+    };
   }
 
   async createCheckout(createCheckoutDto: CreateCheckoutDto, user: UserDocument): Promise<CheckoutDocument> {

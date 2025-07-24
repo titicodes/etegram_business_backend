@@ -246,7 +246,7 @@
 //   }
 // }
 
-import { Controller, Get, Post, Patch, Delete, Body, Query, Param, Request, UseGuards, BadRequestException, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Query, Param, Request, UseGuards, BadRequestException, UseInterceptors, UploadedFile, FileTypeValidator, ParseFilePipe } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { JwtAuthGuard } from '../auth/guard/jwtGuard';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -260,6 +260,8 @@ import { UserRoleEnum } from 'src/common/enums/user.enum';
 import { ProductMovementDto } from './dto/product-movement.dto';
 import { User } from '../user/schema/user.schema';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Roles } from 'src/common/constants/decorators/role.decorator';
+import { RolesGuard } from '../auth/guard/roles.guard';
 
 @Controller('products')
 export class ProductController {
@@ -278,25 +280,76 @@ export class ProductController {
     return this.productService.addProduct(dto, req.user._id, storeId, req.user.role, imageUrl, file);
   }
 
-  @UseGuards(JwtAuthGuard)
+  // @UseGuards(JwtAuthGuard)
+  // @Post('scan/:storeId')
+  // @UseInterceptors(FileInterceptor('file'))
+  // async scanAndAddProduct(
+  //   @Body() createProductDto: CreateProductDto,
+  //   @Param('storeId') storeId: string,
+  //   @Request() req: { user: User },
+  //   @UploadedFile() file?: Express.Multer.File,
+  //   @Body('imageUrl') imageUrl?: string,
+  // ) {
+  //   const product = await this.productService.scanAndAddProduct(
+  //     createProductDto,
+  //     req.user._id,
+  //     storeId,
+  //     req.user.role,
+  //     imageUrl,
+  //     file
+  //   );
+  //   return { success: true, data: product, message: 'Product added successfully' };
+  // }
+
   @Post('scan/:storeId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleEnum.STORE_OWNER, UserRoleEnum.ADMIN)
   @UseInterceptors(FileInterceptor('file'))
   async scanAndAddProduct(
-    @Body() createProductDto: CreateProductDto,
+    @Body() body: any,
     @Param('storeId') storeId: string,
-    @Request() req: { user: User },
-    @UploadedFile() file?: Express.Multer.File,
-    @Body('imageUrl') imageUrl?: string,
+    @Request() req: any,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new FileTypeValidator({ fileType: /(jpg|jpeg|png)$/ }),
+        ],
+        fileIsRequired: false,
+      }),
+    ) file?: Express.Multer.File,
   ) {
-    const product = await this.productService.scanAndAddProduct(
+    const createProductDto: CreateProductDto = {
+      name: body.name,
+      code: body.code,
+      category: body.category,
+      price: parseFloat(body.price),
+      costPrice: parseFloat(body.costPrice),
+      quantity: parseInt(body.quantity, 10),
+      minQuantity: parseInt(body.minQuantity, 10),
+      expiryDate: body.expiryDate,
+      description: body.description,
+      size: body.size,
+      brands: body.brands,
+      storeId: body.storeId,
+    };
+
+    // Validate required fields
+    if (!createProductDto.name || isNaN(createProductDto.price) || isNaN(createProductDto.quantity)) {
+      throw new BadRequestException('Invalid product data: name, price, and quantity are required');
+    }
+    if (!createProductDto.code) {
+      throw new BadRequestException('Product code is required');
+    }
+
+    const user: User = req.user;
+    return this.productService.scanAndAddProduct(
       createProductDto,
-      req.user._id,
+      user._id.toString(),
       storeId,
-      req.user.role,
-      imageUrl,
-      file
+      user.role,
+      body.imageUrl,
+      file,
     );
-    return { success: true, data: product, message: 'Product added successfully' };
   }
 
   @UseGuards(JwtAuthGuard)
