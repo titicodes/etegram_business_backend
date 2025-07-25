@@ -3,7 +3,18 @@ import { Document, Types } from 'mongoose';
 
 @Schema()
 export class ProductHistory {
-  @Prop({ type: String, required: true, enum: ['restock', 'adjustment', 'sent_out', 'received'] })
+  @Prop({
+    type: String,
+    required: true,
+    enum: [
+      'restock',
+      'adjustment',
+      'sent_out',
+      'received',
+      'sale_adjustment' // <-- ADD THIS NEW VALUE
+      
+    ],
+  })
   type: string;
 
   @Prop({ type: Number, required: true })

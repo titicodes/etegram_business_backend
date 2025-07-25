@@ -1,6 +1,5 @@
 
-
-import { Controller, Get, Post, Patch, Delete, Body, Query, Param, Request, UseGuards, BadRequestException, UseInterceptors, UploadedFile, FileTypeValidator, ParseFilePipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Query, Param, Request, UseGuards, BadRequestException, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { JwtAuthGuard } from '../auth/guard/jwtGuard';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -10,64 +9,107 @@ import { FilterProductDto } from './dto/filter-product.dto';
 import { LowStockProductsQueryDto } from './dto/low-stock-products-query.dto';
 import { SupplyProductDto } from './dto/supply-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { UserRoleEnum } from 'src/common/enums/user.enum';
+import { UserRoleEnum } from 'src/common/enums/user.enum'; // Ensure correct path to UserRoleEnum
 import { ProductMovementDto } from './dto/product-movement.dto';
 import { User } from '../user/schema/user.schema';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { Roles } from 'src/common/constants/decorators/role.decorator';
-import { RolesGuard } from '../auth/guard/roles.guard';
 
 @Controller('products')
 export class ProductController {
   constructor(private readonly productService: ProductService) { }
 
+  // --- ADD PRODUCT ENDPOINT ---
   @UseGuards(JwtAuthGuard)
   @Post(':storeId')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('image')) // Changed to 'image'
   async addProduct(
-    @Body() dto: CreateProductDto,
+    // NOTE: For FormData, NestJS puts ALL fields (including file-related ones) into req.body
+    // So we'll access them from req.body directly, and construct the DTO
     @Param('storeId') storeId: string,
-    @Request() req: { user: User },
+    @Request() req: { user: User, body: any }, // Access req.body directly
     @UploadedFile() file?: Express.Multer.File,
-    @Body('imageUrl') imageUrl?: string,
+    // @Body('imageUrl') imageUrl?: string, // Remove this as it's redundant/problematic with file
   ) {
-    return this.productService.addProduct(dto, req.user._id, storeId, req.user.role, imageUrl, file);
+    const { name, description, price, quantity, category, expiryDate, code, brands, costPrice, size, minQuantity, imageUrl } = req.body;
+
+    // Manually parse numbers, ensuring they are valid
+    const parsedPrice = price !== undefined ? parseFloat(price) : undefined;
+    const parsedQuantity = quantity !== undefined ? parseInt(quantity, 10) : undefined;
+    const parsedCostPrice = costPrice !== undefined ? parseFloat(costPrice) : undefined;
+    const parsedMinQuantity = minQuantity !== undefined ? parseInt(minQuantity, 10) : undefined;
+
+    // Create a new DTO instance with parsed values
+    const createProductDto: CreateProductDto = {
+      name: name,
+      description: description,
+      price: parsedPrice,
+      quantity: parsedQuantity,
+      category: category,
+      expiryDate: expiryDate,
+      code: code,
+      brands: Array.isArray(brands) ? brands : (brands ? [brands] : undefined),
+      costPrice: parsedCostPrice,
+      size: size,
+      minQuantity: parsedMinQuantity,
+      storeId: storeId,
+      imageUrl: imageUrl
+    };
+
+    // If imageUrl is sent as an empty string or explicitly 'null', normalize it for service
+    let finalImageUrl = imageUrl;
+    if (finalImageUrl === '' || finalImageUrl === 'null') {
+      finalImageUrl = undefined;
+    }
+
+    return this.productService.addProduct(createProductDto, req.user._id, storeId, req.user.role, finalImageUrl, file);
   }
 
-
+  // --- SCAN AND ADD PRODUCT ENDPOINT (apply similar logic) ---
   @UseGuards(JwtAuthGuard)
   @Post('scan/:storeId')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('image')) // Changed to 'image'
   async scanAndAddProduct(
-    @Body() createProductDto: CreateProductDto,
     @Param('storeId') storeId: string,
-    @Request() req: { user: User },
+    @Request() req: { user: User, body: any },
     @UploadedFile() file?: Express.Multer.File,
-    @Body('imageUrl') imageUrl?: string,
   ) {
-    console.log('[ProductController][scanAndAddProduct] Request received:', {
-      createProductDto,
-      storeId,
-      user: req.user,
-      file: file ? { filename: file.originalname, size: file.size } : null,
-      imageUrl,
-    });
+    const { name, description, price, quantity, category, expiryDate, code, brands, costPrice, size, minQuantity, imageUrl } = req.body;
 
-    try {
-      const product = await this.productService.scanAndAddProduct(
-        createProductDto,
-        req.user._id,
-        storeId,
-        req.user.role,
-        imageUrl,
-        file,
-      );
-      console.log('[ProductController][scanAndAddProduct] Success:', { product });
-      return { success: true, data: product, message: 'Product added successfully' };
-    } catch (error) {
-      console.error('[ProductController][scanAndAddProduct] Error:', error);
-      throw error;
+    const parsedPrice = price !== undefined ? parseFloat(price) : undefined;
+    const parsedQuantity = quantity !== undefined ? parseInt(quantity, 10) : undefined;
+    const parsedCostPrice = costPrice !== undefined ? parseFloat(costPrice) : undefined;
+    const parsedMinQuantity = minQuantity !== undefined ? parseInt(minQuantity, 10) : undefined;
+
+    const createProductDto: CreateProductDto = {
+      name: name,
+      description: description,
+      price: parsedPrice,
+      quantity: parsedQuantity,
+      category: category,
+      expiryDate: expiryDate,
+      code: code,
+      brands: Array.isArray(brands) ? brands : (brands ? [brands] : undefined),
+      costPrice: parsedCostPrice,
+      size: size,
+      minQuantity: parsedMinQuantity,
+      storeId: storeId,
+      imageUrl: imageUrl
+    };
+
+    let finalImageUrl = imageUrl;
+    if (finalImageUrl === '' || finalImageUrl === 'null') {
+      finalImageUrl = undefined;
     }
+
+    const product = await this.productService.scanAndAddProduct(
+      createProductDto,
+      req.user._id,
+      storeId,
+      req.user.role,
+      finalImageUrl,
+      file
+    );
+    return { success: true, data: product, message: 'Product added successfully' };
   }
 
   @UseGuards(JwtAuthGuard)
@@ -187,6 +229,7 @@ export class ProductController {
     @Param('storeId') storeId: string,
     @Request() req: { user: User }
   ) {
+    // This now calls the optimized service method, which will return all three values.
     return this.productService.getInventorySummary(req.user._id, storeId);
   }
 
@@ -239,15 +282,57 @@ export class ProductController {
     return this.productService.findOne(id, req.user._id, storeId);
   }
 
+  // --- UPDATE PRODUCT ENDPOINT ---
   @UseGuards(JwtAuthGuard)
   @Patch(':id/:storeId')
+  @UseInterceptors(FileInterceptor('image')) // Changed to 'image'
   async updateProduct(
     @Param('id') id: string,
     @Param('storeId') storeId: string,
-    @Body() updateProductDto: UpdateProductDto,
-    @Request() req: { user: User },
+    @Request() req: { user: User, body: any }, // Access req.body directly
+    @UploadedFile() file?: Express.Multer.File,
   ) {
-    return this.productService.updateProduct(id, updateProductDto, req.user._id, storeId, req.user.role);
+    // Extract fields from req.body
+    const { name, description, price, quantity, category, expiryDate, code, brands, costPrice, size, minQuantity, imageUrl } = req.body;
+
+    // Manually parse numbers, handling optional fields and ensuring they are valid
+    const parsedPrice = price !== undefined ? parseFloat(price) : undefined;
+    const parsedQuantity = quantity !== undefined ? parseInt(quantity, 10) : undefined;
+    const parsedCostPrice = costPrice !== undefined ? parseFloat(costPrice) : undefined;
+    const parsedMinQuantity = minQuantity !== undefined ? parseInt(minQuantity, 10) : undefined;
+
+    // Construct the UpdateProductDto
+    const updateProductDto: UpdateProductDto = {
+      name: name,
+      description: description,
+      price: parsedPrice,
+      quantity: parsedQuantity,
+      category: category,
+      expiryDate: expiryDate,
+      code: code,
+      brands: Array.isArray(brands) ? brands : (brands ? [brands] : undefined),
+      costPrice: parsedCostPrice,
+      size: size,
+      minQuantity: parsedMinQuantity,
+      imageUrl: imageUrl // If client provides imageUrl in body for text fields
+    };
+
+    // If imageUrl is sent as an empty string or explicitly 'null', normalize it for service
+    let finalImageUrl = imageUrl;
+    if (finalImageUrl === '' || finalImageUrl === 'null') { // Handle both empty string and the string 'null'
+      finalImageUrl = undefined;
+    }
+
+    // Call your service, passing the file and the potentially adjusted imageUrl
+    return this.productService.updateProduct(
+      id,
+      updateProductDto,
+      req.user._id,
+      storeId,
+      req.user.role,
+      file,
+      finalImageUrl // Pass this explicitly if your service expects it
+    );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -257,12 +342,24 @@ export class ProductController {
     @Param('storeId') storeId: string,
     @Param('productId') productId: string,
     @Request() req: { user: User },
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file?: Express.Multer.File,
+    @Body('imageUrl') imageUrl?: string,
   ) {
-    if (!file) {
-      throw new BadRequestException('No file uploaded');
+    // If frontend sends null/empty string for imageUrl and no file, it means clear image
+    if (!file && !imageUrl) { // Allow clearing by sending no file and no URL or explicit null
+      imageUrl = null; // Normalize to null for service logic if both are empty/undefined
+    } else if (imageUrl === '') { // Treat empty string URL as desire to clear
+      imageUrl = null;
     }
-    return this.productService.uploadProductImage(productId, storeId, req.user._id, file);
+
+    if (!file && imageUrl === null) {
+      // If the intent is to clear the image, the service handles it.
+      // No need to throw a BadRequestException here.
+    } else if (!file && !imageUrl) {
+      throw new BadRequestException('Either an image file or URL must be provided to set an image');
+    }
+
+    return this.productService.uploadProductImage(productId, storeId, req.user._id, file, imageUrl);
   }
 
   @UseGuards(JwtAuthGuard)
