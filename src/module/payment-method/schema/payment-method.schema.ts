@@ -35,6 +35,12 @@ export class PaymentMethod extends Document {
 
   @Prop({ required: false })
   extraInfo?: string;
+
+  @Prop()
+  deliveryAddress?: string;
+
+  @Prop()
+  customerName?: string;
 }
 
 export type PaymentMethodDocument = PaymentMethod & Document;

@@ -61,6 +61,9 @@ export class CreateCheckoutDto {
   @IsMongoId()
   supplierId?: string;
 
+  @IsString()
+  @IsOptional()
+  deliveryAddress?: string;
 }
 
 
@@ -71,3 +74,7 @@ export class UpdateOrderStatusDto {
 }
 
 
+export class CheckProductDto {
+  @IsString()
+  storeId: string;
+}

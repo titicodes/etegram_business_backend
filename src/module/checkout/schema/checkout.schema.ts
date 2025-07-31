@@ -1,5 +1,3 @@
-
-
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 import { Product } from 'src/module/product/schema/product.schema';
@@ -28,7 +26,7 @@ export class Checkout {
   totalPrice: number;
 
   @Prop({ required: true })
-  discountedPrice: number;
+  discountedPrice: number; // Will be set to totalPrice if no discount
 
   @Prop({ required: true })
   totalPriceWithTax: number;
@@ -56,6 +54,12 @@ export class Checkout {
 
   @Prop({ type: Date, default: Date.now })
   createdAt: Date;
+
+  @Prop()
+  customerName?: string;
+
+  @Prop()
+  deliveryAddress?: string;
 }
 
 export type CheckoutDocument = Checkout & Document;
