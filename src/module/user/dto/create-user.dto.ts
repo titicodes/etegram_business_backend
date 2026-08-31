@@ -6,11 +6,8 @@ import {
   MinLength,
   MaxLength,
   IsNotEmpty,
-  IsCurrency,
   IsEnum,
-  Matches,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { UserRoleEnum } from 'src/common/enums/user.enum';
 
@@ -28,7 +25,7 @@ export class CreateUserDto {
   @ApiProperty({ description: 'The password of the user' })
   @IsNotEmpty()
   @IsString()
- // @MinLength(8)
+  // @MinLength(8)
   // @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/, {
   //   message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
   // })
@@ -50,7 +47,6 @@ export class CreateUserDto {
   @IsString()
   @IsOptional()
   businessName: string;
-
 
   metadata?: { userId: string };
 
@@ -79,7 +75,10 @@ export class CreateUserDto {
   @IsOptional()
   city?: string;
 
-  @ApiProperty({ description: 'The business type of the user', required: false })
+  @ApiProperty({
+    description: 'The business type of the user',
+    required: false,
+  })
   @IsOptional()
   businessType?: string;
 

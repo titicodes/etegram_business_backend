@@ -1,5 +1,11 @@
-
-import { IsString, IsNumber, IsOptional, IsNotEmpty, Min, IsDateString } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsNotEmpty,
+  Min,
+  IsDateString,
+} from 'class-validator';
 
 export class CreateProductDto {
   @IsString()
@@ -49,7 +55,7 @@ export class CreateProductDto {
 
   @IsString()
   @IsNotEmpty() // Make storeId required for product creation
-  storeId: string
+  storeId: string;
 
   @IsString()
   @IsOptional()

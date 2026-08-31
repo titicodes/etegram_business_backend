@@ -1,8 +1,25 @@
-import { Controller, Post, Patch, Body, Request, UseGuards, Get, Param, Query, Logger, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Patch,
+  Body,
+  Request,
+  UseGuards,
+  Get,
+  Param,
+  Query,
+  Logger,
+  BadRequestException,
+} from '@nestjs/common';
 import { CheckoutService } from './checkout.service';
 import { UserService } from '../user/user.service';
 import { JwtAuthGuard } from '../auth/guard/jwtGuard';
-import { ScanProductDto, CreateCheckoutDto, UpdateOrderStatusDto, CheckProductDto } from './dto/create-checkout.dto';
+import {
+  ScanProductDto,
+  CreateCheckoutDto,
+  UpdateOrderStatusDto,
+  CheckProductDto,
+} from './dto/create-checkout.dto';
 
 @Controller('checkout')
 export class CheckoutController {
@@ -11,7 +28,7 @@ export class CheckoutController {
   constructor(
     private readonly checkoutService: CheckoutService,
     private readonly userService: UserService,
-  ) { }
+  ) {}
 
   @UseGuards(JwtAuthGuard)
   @Post('check-product/:code')
@@ -20,8 +37,15 @@ export class CheckoutController {
     @Body() checkProductDto: CheckProductDto,
     @Request() req,
   ) {
-    this.logger.log(`Received checkProduct request: Code=${code}, StoreId=${checkProductDto.storeId}, UserId=${req.user._id}`);
-    return this.checkoutService.checkProduct(code, checkProductDto.storeId, req.user._id, req.user.role);
+    this.logger.log(
+      `Received checkProduct request: Code=${code}, StoreId=${checkProductDto.storeId}, UserId=${req.user._id}`,
+    );
+    return this.checkoutService.checkProduct(
+      code,
+      checkProductDto.storeId,
+      req.user._id,
+      req.user.role,
+    );
   }
 
   // Other endpoints remain unchanged
@@ -32,12 +56,21 @@ export class CheckoutController {
     if (!code || !cart || !storeId) {
       throw new BadRequestException('Code, cart, and storeId are required');
     }
-    return this.checkoutService.scanProduct(code, cart, req.user._id, storeId, req.user.role);
+    return this.checkoutService.scanProduct(
+      code,
+      cart,
+      req.user._id,
+      storeId,
+      req.user.role,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async createCheckout(@Body() createCheckoutDto: CreateCheckoutDto, @Request() req) {
+  async createCheckout(
+    @Body() createCheckoutDto: CreateCheckoutDto,
+    @Request() req,
+  ) {
     const user = await this.userService.findById(req.user._id);
     if (!user) {
       throw new BadRequestException('User not found');
@@ -47,12 +80,20 @@ export class CheckoutController {
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id/status')
-  async updateOrderStatus(@Body() updateOrderStatusDto: UpdateOrderStatusDto, @Request() req) {
+  async updateOrderStatus(
+    @Body() updateOrderStatusDto: UpdateOrderStatusDto,
+    @Request() req,
+  ) {
     const { status } = updateOrderStatusDto;
     if (!status) {
       throw new BadRequestException('Status is required');
     }
-    return this.checkoutService.updateOrderStatus(req.params.id, status, req.user._id, req.user.role);
+    return this.checkoutService.updateOrderStatus(
+      req.params.id,
+      status,
+      req.user._id,
+      req.user.role,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -65,7 +106,12 @@ export class CheckoutController {
     if (!storeId) {
       throw new BadRequestException('Store ID is required');
     }
-    return this.checkoutService.getSalesHistory(storeId, req.user._id, req.user.role, productId);
+    return this.checkoutService.getSalesHistory(
+      storeId,
+      req.user._id,
+      req.user.role,
+      productId,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -78,7 +124,12 @@ export class CheckoutController {
     if (!storeId) {
       throw new BadRequestException('Store ID is required');
     }
-    return this.checkoutService.getOwingRecords(storeId, req.user._id, req.user.role, supplierId);
+    return this.checkoutService.getOwingRecords(
+      storeId,
+      req.user._id,
+      req.user.role,
+      supplierId,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -91,6 +142,11 @@ export class CheckoutController {
     if (!storeId) {
       throw new BadRequestException('Store ID is required');
     }
-    return this.checkoutService.getOwedRecords(storeId, req.user._id, req.user.role, customerId);
+    return this.checkoutService.getOwedRecords(
+      storeId,
+      req.user._id,
+      req.user.role,
+      customerId,
+    );
   }
 }

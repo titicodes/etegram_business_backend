@@ -33,7 +33,6 @@ export interface IEnvironment {
     BUCKET_NAME: string;
     BUCKET_URL: string;
   };
- 
 }
 
 export const ENVIRONMENT: IEnvironment = {
@@ -67,12 +66,11 @@ export const ENVIRONMENT: IEnvironment = {
     BUCKET_NAME: process.env.AWS_BUCKET_NAME,
     BUCKET_URL: process.env.AWS_BUCKET_URL,
   },
-  
 };
 
 /**
  * @returns true if the current process is running in a test environment.
  */
 export const isTest = (): boolean => {
-  return env.environment === "test";
+  return env.environment === 'test';
 };

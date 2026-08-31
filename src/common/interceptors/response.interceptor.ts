@@ -39,8 +39,13 @@
 //     }
 //   }
 
-
-import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NestInterceptor,
+  ExecutionContext,
+  CallHandler,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Observable, map } from 'rxjs';
 import { ResponseMessageKey } from '../constants/decorators/response.decorator';
@@ -50,20 +55,34 @@ export interface Response<T> {
 }
 
 @Injectable()
-export class ResponseTransformerInterceptor<T> implements NestInterceptor<T, Response<T>> {
-  constructor(private reflector: Reflector) { }
+export class ResponseTransformerInterceptor<T>
+  implements NestInterceptor<T, Response<T>>
+{
+  private readonly logger = new Logger(ResponseTransformerInterceptor.name);
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<Response<T>> {
+  constructor(private reflector: Reflector) {}
+
+  intercept(
+    context: ExecutionContext,
+    next: CallHandler,
+  ): Observable<Response<T>> {
     const response = context.switchToHttp().getResponse();
-    const responseMessage = this.reflector.get<string>(ResponseMessageKey, context.getHandler()) ?? null;
+    const responseMessage =
+      this.reflector.get<string>(ResponseMessageKey, context.getHandler()) ??
+      null;
 
     return next.handle().pipe(
       map((data) => {
-        console.log("Interceptor Data In: ", data); // Moved inside map callback
+        this.logger.debug('Interceptor Data In: ', data); // Moved inside map callback
 
         // Check if the returned data is already in the desired format
-        if (data && data.success !== undefined && data.data !== undefined && data.message !== undefined) {
-          console.log("Interceptor Data Out (No Change): ", data);
+        if (
+          data &&
+          data.success !== undefined &&
+          data.data !== undefined &&
+          data.message !== undefined
+        ) {
+          this.logger.debug('Interceptor Data Out (No Change): ', data);
           return data; // Return the data as is
         }
 
@@ -73,7 +92,7 @@ export class ResponseTransformerInterceptor<T> implements NestInterceptor<T, Res
           data: data,
           message: responseMessage || 'Request completed successfully',
         };
-        console.log("Interceptor Data Out (Transformed): ", returnedData);
+        this.logger.debug('Interceptor Data Out (Transformed): ', returnedData);
         return returnedData;
       }),
     );

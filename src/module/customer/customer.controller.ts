@@ -1,5 +1,15 @@
-
-import { Body, Controller, Delete, Get, Param, Post, Put, Query, Request, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { CustomerService } from './customer.service';
 import { JwtAuthGuard } from '../auth/guard/jwtGuard';
 import { CreateCustomerDto } from './dto/customer.dto';
@@ -24,7 +34,13 @@ export class CustomerController {
     @Query('limit') limit: string = '20',
     @Request() req: any,
   ) {
-    return this.customerService.findAll(req.user, storeId, keyword, parseInt(limit), parseInt(page));
+    return this.customerService.findAll(
+      req.user,
+      storeId,
+      keyword,
+      parseInt(limit),
+      parseInt(page),
+    );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -44,7 +60,11 @@ export class CustomerController {
 
   @UseGuards(JwtAuthGuard)
   @Put(':id')
-  update(@Param('id') id: string, @Body() updateDto: UpdateCustomerDto, @Request() req: any) {
+  update(
+    @Param('id') id: string,
+    @Body() updateDto: UpdateCustomerDto,
+    @Request() req: any,
+  ) {
     return this.customerService.updateCustomer(id, updateDto, req.user);
   }
 

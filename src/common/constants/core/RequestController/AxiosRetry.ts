@@ -1,7 +1,7 @@
-import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from "axios";
+import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
 
-import { isTest } from "src/common/config/environment";
-import { noop } from "src/utils/noop";
+import { isTest } from 'src/common/config/environment';
+import { noop } from 'src/utils/noop';
 
 export interface AxiosRetryConfig {
   maxAttempts: number;
@@ -15,7 +15,7 @@ export class AxiosRetry {
   // eslint-disable-next-line complexity
   public static async request<Data, Response>(
     retryConfig: AxiosRetryConfig,
-    requestConfig: AxiosRequestConfig<Data>
+    requestConfig: AxiosRequestConfig<Data>,
   ): Promise<AxiosResponse<Response>> {
     for (let attempt = 1; ; attempt++) {
       try {
@@ -37,7 +37,7 @@ export class AxiosRetry {
         if (
           !requestConfig.method ||
           !retryConfig.allowedMethods.includes(
-            requestConfig.method.toUpperCase()
+            requestConfig.method.toUpperCase(),
           )
         ) {
           throw e;
@@ -49,7 +49,7 @@ export class AxiosRetry {
         if (
           !axiosError.response?.status ||
           !retryConfig.allowedResponseStatuses.includes(
-            axiosError.response.status
+            axiosError.response.status,
           )
         ) {
           throw e;

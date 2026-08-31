@@ -1,4 +1,4 @@
-import { LendsqrErrorCode } from "./ErrorCode";
+import { LendsqrErrorCode } from './ErrorCode';
 
 export type LendsqrErrorDetails = Record<string, unknown>;
 
@@ -10,7 +10,7 @@ export interface LendsqrErrorOptions<ErrorCode extends LendsqrErrorCode> {
 }
 
 export class LendsqrError extends Error {
-  public readonly name: string = "Lendsqr Error";
+  public readonly name: string = 'Lendsqr Error';
   public readonly code: LendsqrErrorCode;
   public readonly details?: LendsqrErrorDetails;
   public readonly cause?: Error | LendsqrError;
@@ -25,7 +25,7 @@ export class LendsqrError extends Error {
     details,
     cause,
   }: LendsqrErrorOptions<LendsqrErrorCode>) {
-    // @ts-ignore Typescript does not recognise 'cause' ? OR we have wrong TS version
+    // @ts-expect-error Typescript does not recognise 'cause' ? OR we have wrong TS version
     super(LendsqrError.makeMessage(message, code), { cause });
 
     // Set prototype manually, as required since Typescript 2.2: https://www.typescriptlang.org/docs/handbook/release-notes/typescript-2-2.html#example
@@ -37,7 +37,7 @@ export class LendsqrError extends Error {
     if (cause) {
       this.cause = cause;
 
-      if ("stack" in cause) {
+      if ('stack' in cause) {
         this.stack = `${this.stack}\nCAUSE: ${cause.stack}`;
       }
     }

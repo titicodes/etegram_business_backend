@@ -113,7 +113,9 @@ export class InvoiceService {
       doc.text(`Customer: ${orderData.customerName || 'Unknown'}`);
       doc.text(`Payment Method: ${orderData.paymentMethod || 'Not provided'}`);
       doc.text(`Total Price: ₦${orderData.totalPrice.toFixed(2)}`);
-      doc.text(`Delivery Address: ${orderData.deliveryAddress || 'Not provided'}`);
+      doc.text(
+        `Delivery Address: ${orderData.deliveryAddress || 'Not provided'}`,
+      );
       doc.moveDown();
 
       if (orderData.items && Array.isArray(orderData.items)) {
@@ -122,13 +124,27 @@ export class InvoiceService {
 
         orderData.items.forEach((item, index) => {
           if (typeof item.price !== 'number') {
-            this.logger.error(`Item price is not a number for item ${item.name}:`, item.price);
-            return reject(new BadRequestException(`Price for item ${item.name} must be a number.`));
+            this.logger.error(
+              `Item price is not a number for item ${item.name}:`,
+              item.price,
+            );
+            return reject(
+              new BadRequestException(
+                `Price for item ${item.name} must be a number.`,
+              ),
+            );
           }
-          doc.fontSize(14).text(`${index + 1}. ${item.name} - ${item.quantity} x ₦${item.price.toFixed(2)}`);
+          doc
+            .fontSize(14)
+            .text(
+              `${index + 1}. ${item.name} - ${item.quantity} x ₦${item.price.toFixed(2)}`,
+            );
         });
       } else {
-        this.logger.error('Items array is undefined or not an array:', orderData);
+        this.logger.error(
+          'Items array is undefined or not an array:',
+          orderData,
+        );
         doc.fontSize(14).text('No items found for this order.');
       }
 

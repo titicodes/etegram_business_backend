@@ -1,111 +1,195 @@
-
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { User, UserDocument } from '../user/schema/user.schema';
 import { UserService } from '../user/user.service';
 import { FirebaseService } from 'src/firebase/firebase.service';
-import { Notification, NotificationDocument, NotificationType } from './schema/notification.schem';
+import {
+  Notification,
+  NotificationDocument,
+  NotificationType,
+} from './schema/notification.schem';
 
 @Injectable()
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
 
   constructor(
-    @InjectModel(Notification.name) private notificationModel: Model<NotificationDocument>,
+    @InjectModel(Notification.name)
+    private notificationModel: Model<NotificationDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private readonly firebaseService: FirebaseService,
     private readonly userService: UserService,
-  ) { }
+  ) {}
 
   async sendOrderNotification(userId: string, order: any) {
     const user = await this.userService.findById(userId);
     if (!user.fcmToken) {
-      this.logger.warn(`User ${userId} has no FCM token. Skipping order notification.`);
+      this.logger.warn(
+        `User ${userId} has no FCM token. Skipping order notification.`,
+      );
       return;
     }
 
     const title = 'Order Placed Successfully';
     const body = `Your order (${order._id}) has been placed successfully. Total: ₦${order.totalPriceWithTax}`;
 
-    await this.sendAndSaveNotification(userId, title, body, NotificationType.ORDER, { orderId: order._id });
+    await this.sendAndSaveNotification(
+      userId,
+      title,
+      body,
+      NotificationType.ORDER,
+      { orderId: order._id },
+    );
   }
 
   async sendOrderStatusUpdate(orderId: string, userId: string, status: string) {
     const user = await this.userService.findById(userId);
     if (!user.fcmToken) {
-      this.logger.warn(`User ${userId} has no FCM token. Skipping order status notification.`);
+      this.logger.warn(
+        `User ${userId} has no FCM token. Skipping order status notification.`,
+      );
       return;
     }
 
     const title = 'Order Status Update';
     const body = `Your order (${orderId}) status has changed to ${status}.`;
 
-    await this.sendAndSaveNotification(userId, title, body, NotificationType.ORDER, { orderId, status });
+    await this.sendAndSaveNotification(
+      userId,
+      title,
+      body,
+      NotificationType.ORDER,
+      { orderId, status },
+    );
   }
 
-  async notifyLowStock(productName: string, productId: string, adminIds: string[]) {
+  async notifyLowStock(
+    productName: string,
+    productId: string,
+    adminIds: string[],
+  ) {
     const title = 'Low Stock Alert';
     const body = `Product "${productName}" (ID: ${productId}) is running low. Please restock.`;
 
     for (const adminId of adminIds) {
       const user = await this.userService.findById(adminId);
       if (!user.fcmToken) {
-        this.logger.warn(`User ${adminId} has no FCM token. Skipping low stock notification.`);
+        this.logger.warn(
+          `User ${adminId} has no FCM token. Skipping low stock notification.`,
+        );
         continue;
       }
-      await this.sendAndSaveNotification(adminId, title, body, NotificationType.LOW_STOCK, { productId });
+      await this.sendAndSaveNotification(
+        adminId,
+        title,
+        body,
+        NotificationType.LOW_STOCK,
+        { productId },
+      );
     }
   }
 
   async sendTrialStartNotification(fcmToken: string) {
     const title = 'Welcome to Your Trial Period!';
-    const body = 'Your 10-day trial has started. Enjoy full access to all premium features!';
+    const body =
+      'Your 10-day trial has started. Enjoy full access to all premium features!';
     if (!fcmToken) {
       this.logger.warn('sendTrialStartNotification: No FCM token provided.');
       return;
     }
-    await this.sendAndSaveNotification(null, title, body, NotificationType.SUBSCRIPTION, {}, fcmToken);
+    await this.sendAndSaveNotification(
+      null,
+      title,
+      body,
+      NotificationType.SUBSCRIPTION,
+      {},
+      fcmToken,
+    );
   }
 
   async sendTrialReminderNotification(fcmToken: string) {
     const title = 'Trial Period Ending Soon';
-    const body = 'Your trial period will end in 2 days. Subscribe to premium to continue using all features!';
+    const body =
+      'Your trial period will end in 2 days. Subscribe to premium to continue using all features!';
     if (!fcmToken) {
       this.logger.warn('sendTrialReminderNotification: No FCM token provided.');
       return;
     }
-    await this.sendAndSaveNotification(null, title, body, NotificationType.SUBSCRIPTION, {}, fcmToken);
+    await this.sendAndSaveNotification(
+      null,
+      title,
+      body,
+      NotificationType.SUBSCRIPTION,
+      {},
+      fcmToken,
+    );
   }
 
   async sendTrialExpirationNotification(fcmToken: string) {
     const title = 'Trial Period Expired';
-    const body = 'Your 10-day trial has expired. Subscribe to premium to continue using all features!';
+    const body =
+      'Your 10-day trial has expired. Subscribe to premium to continue using all features!';
     if (!fcmToken) {
-      this.logger.warn('sendTrialExpirationNotification: No FCM token provided.');
+      this.logger.warn(
+        'sendTrialExpirationNotification: No FCM token provided.',
+      );
       return;
     }
-    await this.sendAndSaveNotification(null, title, body, NotificationType.SUBSCRIPTION, {}, fcmToken);
+    await this.sendAndSaveNotification(
+      null,
+      title,
+      body,
+      NotificationType.SUBSCRIPTION,
+      {},
+      fcmToken,
+    );
   }
 
-  async sendPremiumSubscriptionNotification(fcmToken: string, subscriptionType: 'MONTHLY' | 'YEARLY') {
+  async sendPremiumSubscriptionNotification(
+    fcmToken: string,
+    subscriptionType: 'MONTHLY' | 'YEARLY',
+  ) {
     const title = 'Premium Subscription Activated';
     const body = `Your ${subscriptionType.toLowerCase()} premium subscription has been activated!`;
     if (!fcmToken) {
-      this.logger.warn('sendPremiumSubscriptionNotification: No FCM token provided.');
+      this.logger.warn(
+        'sendPremiumSubscriptionNotification: No FCM token provided.',
+      );
       return;
     }
-    await this.sendAndSaveNotification(null, title, body, NotificationType.SUBSCRIPTION, { subscriptionType }, fcmToken);
+    await this.sendAndSaveNotification(
+      null,
+      title,
+      body,
+      NotificationType.SUBSCRIPTION,
+      { subscriptionType },
+      fcmToken,
+    );
   }
 
   async sendSubscriptionCancellationNotification(fcmToken: string) {
     const title = 'Subscription Cancelled';
     const body = 'Your premium subscription has been cancelled.';
     if (!fcmToken) {
-      this.logger.warn('sendSubscriptionCancellationNotification: No FCM token provided.');
+      this.logger.warn(
+        'sendSubscriptionCancellationNotification: No FCM token provided.',
+      );
       return;
     }
-    await this.sendAndSaveNotification(null, title, body, NotificationType.SUBSCRIPTION, {}, fcmToken);
+    await this.sendAndSaveNotification(
+      null,
+      title,
+      body,
+      NotificationType.SUBSCRIPTION,
+      {},
+      fcmToken,
+    );
   }
 
   async sendBroadcastNotification(
@@ -120,10 +204,19 @@ export class NotificationService {
 
     for (const user of users) {
       if (!user.fcmToken) {
-        this.logger.warn(`User ${user._id} has no FCM token. Skipping broadcast notification.`);
+        this.logger.warn(
+          `User ${user._id} has no FCM token. Skipping broadcast notification.`,
+        );
         continue;
       }
-      await this.sendAndSaveNotification(user._id.toString(), title, body, type, data, user.fcmToken);
+      await this.sendAndSaveNotification(
+        user._id.toString(),
+        title,
+        body,
+        type,
+        data,
+        user.fcmToken,
+      );
     }
   }
 
@@ -137,7 +230,12 @@ export class NotificationService {
   ) {
     try {
       if (fcmToken) {
-        await this.firebaseService.sendNotification(fcmToken, title, body, data);
+        await this.firebaseService.sendNotification(
+          fcmToken,
+          title,
+          body,
+          data,
+        );
         this.logger.log(`Push notification sent to FCM token: ${fcmToken}`);
       }
 
@@ -154,11 +252,18 @@ export class NotificationService {
         this.logger.log(`Notification saved for user ${userId}: ${title}`);
       }
     } catch (error) {
-      this.logger.error(`Failed to send/save notification: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to send/save notification: ${error.message}`,
+        error.stack,
+      );
     }
   }
 
-  async getUserNotifications(userId: string, limit: number = 20, skip: number = 0) {
+  async getUserNotifications(
+    userId: string,
+    limit: number = 20,
+    skip: number = 0,
+  ) {
     if (!Types.ObjectId.isValid(userId)) {
       this.logger.error(`Invalid user ID: ${userId}`);
       throw new BadRequestException('Invalid user ID');
@@ -198,6 +303,8 @@ export class NotificationService {
       throw new BadRequestException('Invalid user ID');
     }
 
-    return this.notificationModel.countDocuments({ user: userId, isRead: false }).exec();
+    return this.notificationModel
+      .countDocuments({ user: userId, isRead: false })
+      .exec();
   }
 }

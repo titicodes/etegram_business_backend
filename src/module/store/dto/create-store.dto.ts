@@ -1,5 +1,11 @@
 import { Exclude } from 'class-transformer';
-import { IsString, IsNotEmpty, IsOptional, IsEmail, IsMongoId } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEmail,
+  IsMongoId,
+} from 'class-validator';
 
 export class CreateStoreDto {
   @Exclude()

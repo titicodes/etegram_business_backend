@@ -16,10 +16,8 @@ import { UserModule } from '../user/user.module';
     forwardRef(() => NotificationModule),
     forwardRef(() => UserModule),
   ],
-  providers: [
-    SubscriptionService,
-  ],
+  providers: [SubscriptionService],
   controllers: [SubscriptionController],
   exports: [SubscriptionService],
 })
-export class SubscriptionModule { }
+export class SubscriptionModule {}

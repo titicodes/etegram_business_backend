@@ -24,14 +24,12 @@ import { PaymentMethodModule } from './module/payment-method/payment-method.modu
 import { CustomerModule } from './module/customer/customer.module';
 import { ExpenseModule } from './module/expenses/expenses.module';
 import { DeliveriesModule } from './module/deliveries/deliveries.module';
-import { ChatService } from './module/chat/chat.service';
 import { ChatModule } from './module/chat/chat.module';
 import { SubscriptionModule } from './module/subscription/subscription.module';
 import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { AdminModule } from './module/admin/admin.module';
-
 
 @Module({
   imports: [
@@ -59,8 +57,12 @@ import { AdminModule } from './module/admin/admin.module';
       storage: diskStorage({
         destination: './uploads',
         filename: (req, file, callback) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          callback(null, `${file.fieldname}-${uniqueSuffix}${extname(file.originalname)}`);
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
+          callback(
+            null,
+            `${file.fieldname}-${uniqueSuffix}${extname(file.originalname)}`,
+          );
         },
       }),
       fileFilter: (req, file, callback) => {
@@ -88,9 +90,9 @@ import { AdminModule } from './module/admin/admin.module';
     DeliveriesModule,
     SubscriptionModule,
     ChatModule,
-    AdminModule
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}

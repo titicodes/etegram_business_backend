@@ -1,4 +1,11 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Product, ProductDocument } from './schema/product.schema';
@@ -9,8 +16,14 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { FilterProductDto } from './dto/filter-product.dto';
 import { UserRoleEnum } from 'src/common/enums/user.enum';
 import { User } from '../user/schema/user.schema';
-import { Deliveries, DeliveriesDocument } from '../deliveries/schema/deliveries.schema';
-import { ProductHistory, ProductHistoryDocument } from './schema/product-history.schema';
+import {
+  Deliveries,
+  DeliveriesDocument,
+} from '../deliveries/schema/deliveries.schema';
+import {
+  ProductHistory,
+  ProductHistoryDocument,
+} from './schema/product-history.schema';
 import { imagekit } from 'src/common/config/imagekit.config';
 import * as http from 'http';
 import * as https from 'https';
@@ -35,14 +48,18 @@ interface ProductMovementDto {
 
 @Injectable()
 export class ProductService {
-  constructor(
-    @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
-    @InjectModel(ProductHistory.name) private readonly productHistoryModel: Model<ProductHistoryDocument>,
-    @InjectModel(Store.name) private readonly storeModel: Model<StoreDocument>,
-    @InjectModel(Deliveries.name) private readonly deliveriesModel: Model<DeliveriesDocument>,
-    private readonly categoryService: ProductCategoriesService,
-  ) { }
+  private readonly logger = new Logger(ProductService.name);
 
+  constructor(
+    @InjectModel(Product.name)
+    private readonly productModel: Model<ProductDocument>,
+    @InjectModel(ProductHistory.name)
+    private readonly productHistoryModel: Model<ProductHistoryDocument>,
+    @InjectModel(Store.name) private readonly storeModel: Model<StoreDocument>,
+    @InjectModel(Deliveries.name)
+    private readonly deliveriesModel: Model<DeliveriesDocument>,
+    private readonly categoryService: ProductCategoriesService,
+  ) {}
 
   async addProduct(
     createProductDto: CreateProductDto,
@@ -50,27 +67,37 @@ export class ProductService {
     storeId: string,
     userRole: UserRoleEnum[],
     imageUrl?: string,
-    file?: Express.Multer.File
+    file?: Express.Multer.File,
   ): Promise<ProductDocument> {
     const session = await this.productModel.db.startSession();
     try {
-      console.log('[ProductService][addProduct] Attempting to add product:', {
-        storeId,
-        ownerId,
-        productName: createProductDto.name,
-        userRole,
-        imageUrl,
-        hasFile: !!file,
-      });
+      this.logger.log(
+        '[ProductService][addProduct] Attempting to add product:',
+        {
+          storeId,
+          ownerId,
+          productName: createProductDto.name,
+          userRole,
+          imageUrl,
+          hasFile: !!file,
+        },
+      );
 
       // Authorization check
-      if (!userRole.includes(UserRoleEnum.STORE_OWNER) && !userRole.includes(UserRoleEnum.ADMIN)) {
-        throw new UnauthorizedException('Only store owners or admins can add products');
+      if (
+        !userRole.includes(UserRoleEnum.STORE_OWNER) &&
+        !userRole.includes(UserRoleEnum.ADMIN)
+      ) {
+        throw new UnauthorizedException(
+          'Only store owners or admins can add products',
+        );
       }
 
       // Validate store ID
       if (!Types.ObjectId.isValid(storeId)) {
-        console.error('[ProductService][addProduct] Invalid store ID:', { storeId });
+        this.logger.error('[ProductService][addProduct] Invalid store ID:', {
+          storeId,
+        });
         throw new BadRequestException('Invalid store ID');
       }
 
@@ -85,19 +112,35 @@ export class ProductService {
       }
 
       if (!store) {
-        console.error('[ProductService][addProduct] Store not found or unauthorized:', { storeId, ownerId });
-        throw new BadRequestException('Store not found or you do not have permission');
+        this.logger.error(
+          '[ProductService][addProduct] Store not found or unauthorized:',
+          { storeId, ownerId },
+        );
+        throw new BadRequestException(
+          'Store not found or you do not have permission',
+        );
       }
 
       // Validate product data
       // Adjusted quantity validation based on frontend suggestion (quantity > 0 for new product)
-      if (!createProductDto.name || createProductDto.price <= 0 || createProductDto.quantity < 1) {
-        console.error('[ProductService][addProduct] Invalid product data: name, price (must be positive), and quantity (must be at least 1) are required and must be valid', { createProductDto });
-        throw new BadRequestException('Invalid product data: name, price (must be positive), and quantity (must be at least 1) are required and must be valid');
+      if (
+        !createProductDto.name ||
+        createProductDto.price <= 0 ||
+        createProductDto.quantity < 1
+      ) {
+        this.logger.error(
+          '[ProductService][addProduct] Invalid product data: name, price (must be positive), and quantity (must be at least 1) are required and must be valid',
+          { createProductDto },
+        );
+        throw new BadRequestException(
+          'Invalid product data: name, price (must be positive), and quantity (must be at least 1) are required and must be valid',
+        );
       }
 
       if (!createProductDto.code) {
-        console.error('[ProductService][addProduct] Product code is required');
+        this.logger.error(
+          '[ProductService][addProduct] Product code is required',
+        );
         throw new BadRequestException('Product code is required');
       }
 
@@ -107,14 +150,22 @@ export class ProductService {
         .session(session)
         .exec();
       if (existingProduct) {
-        console.error('[ProductService][addProduct] Product code already exists:', { code: createProductDto.code, storeId });
-        throw new ConflictException(`Product with code ${createProductDto.code} already exists in this store`);
+        this.logger.error(
+          '[ProductService][addProduct] Product code already exists:',
+          { code: createProductDto.code, storeId },
+        );
+        throw new ConflictException(
+          `Product with code ${createProductDto.code} already exists in this store`,
+        );
       }
 
       // Handle category
       let categoryId: Types.ObjectId | undefined;
       if (createProductDto.category) {
-        const categoryEntity = await this.categoryService.findOrCreate(createProductDto.category, session);
+        const categoryEntity = await this.categoryService.findOrCreate(
+          createProductDto.category,
+          session,
+        );
         categoryId = categoryEntity._id as Types.ObjectId;
       }
 
@@ -130,12 +181,18 @@ export class ProductService {
           });
           finalImageUrl = uploadResponse.url;
         } catch (error) {
-          console.error('[ProductService][addProduct] Failed to upload file to ImageKit. Proceeding without image URL if not critical:', error);
+          this.logger.error(
+            '[ProductService][addProduct] Failed to upload file to ImageKit. Proceeding without image URL if not critical:',
+            error,
+          );
           // Log the error but proceed without setting imageUrl if image is optional
         }
       } else if (imageUrl) {
         if (!isURL(imageUrl)) {
-          console.error('[ProductService][addProduct] Invalid image URL format:', { imageUrl });
+          this.logger.error(
+            '[ProductService][addProduct] Invalid image URL format:',
+            { imageUrl },
+          );
           throw new BadRequestException('Invalid image URL format');
         }
         try {
@@ -147,7 +204,10 @@ export class ProductService {
           });
           finalImageUrl = uploadResponse.url;
         } catch (error) {
-          console.error('[ProductService][addProduct] Failed to download or upload external image to ImageKit. Proceeding without image URL if not critical:', error);
+          this.logger.error(
+            '[ProductService][addProduct] Failed to download or upload external image to ImageKit. Proceeding without image URL if not critical:',
+            error,
+          );
           // Log the error but proceed without setting imageUrl if image is optional
         }
       }
@@ -170,7 +230,10 @@ export class ProductService {
 
         // Update store with product reference
         await this.storeModel
-          .updateOne({ _id: store._id }, { $push: { products: newProduct._id } })
+          .updateOne(
+            { _id: store._id },
+            { $push: { products: newProduct._id } },
+          )
           .session(session)
           .exec();
 
@@ -184,24 +247,34 @@ export class ProductService {
             userId: new Types.ObjectId(ownerId),
             notes: 'Initial product creation/restock',
           },
-          session
+          session,
         );
 
         return newProduct;
       });
 
-      console.log('[ProductService][addProduct] Product added successfully:', {
-        productId: result._id,
-        storeId,
-        ownerId,
-        finalImageUrl,
-      });
+      this.logger.log(
+        '[ProductService][addProduct] Product added successfully:',
+        {
+          productId: result._id,
+          storeId,
+          ownerId,
+          finalImageUrl,
+        },
+      );
 
       return result;
     } catch (error) {
-      console.error('[ProductService][addProduct] Error adding product:', error);
+      this.logger.error(
+        '[ProductService][addProduct] Error adding product:',
+        error,
+      );
       // Ensure specific exceptions are re-thrown, otherwise wrap in BadRequestException
-      if (error instanceof ConflictException || error instanceof UnauthorizedException || error instanceof BadRequestException) {
+      if (
+        error instanceof ConflictException ||
+        error instanceof UnauthorizedException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       throw new BadRequestException(error.message || 'Failed to add product');
@@ -210,20 +283,25 @@ export class ProductService {
     }
   }
 
-
   private async downloadImage(url: string): Promise<Buffer> {
     const protocol = url.startsWith('https') ? https : http;
     return new Promise((resolve, reject) => {
-      protocol.get(url, (response) => {
-        if (response.statusCode !== 200) {
-          reject(new Error(`Failed to download image from ${url}: Status ${response.statusCode}`));
-          return;
-        }
-        const chunks: Buffer[] = [];
-        response.on('data', (chunk) => chunks.push(chunk));
-        response.on('end', () => resolve(Buffer.concat(chunks)));
-        response.on('error', (error) => reject(error));
-      }).on('error', (error) => reject(error));
+      protocol
+        .get(url, (response) => {
+          if (response.statusCode !== 200) {
+            reject(
+              new Error(
+                `Failed to download image from ${url}: Status ${response.statusCode}`,
+              ),
+            );
+            return;
+          }
+          const chunks: Buffer[] = [];
+          response.on('data', (chunk) => chunks.push(chunk));
+          response.on('end', () => resolve(Buffer.concat(chunks)));
+          response.on('error', (error) => reject(error));
+        })
+        .on('error', (error) => reject(error));
     });
   }
 
@@ -239,20 +317,33 @@ export class ProductService {
     const maxSize = 5 * 1024 * 1024; // 5MB
 
     if (!allowedTypes.includes(file.mimetype)) {
-      console.error('[ProductService][validateImageFile] Invalid file type:', { mimetype: file.mimetype });
+      this.logger.error(
+        '[ProductService][validateImageFile] Invalid file type:',
+        { mimetype: file.mimetype },
+      );
       // Update the error message to reflect the new allowed types
-      throw new BadRequestException('Only JPEG, PNG, GIF, WebP, or BMP images are allowed');
+      throw new BadRequestException(
+        'Only JPEG, PNG, GIF, WebP, or BMP images are allowed',
+      );
     }
 
     if (file.size > maxSize) {
-      console.error('[ProductService][validateImageFile] File too large:', { size: file.size });
+      this.logger.error('[ProductService][validateImageFile] File too large:', {
+        size: file.size,
+      });
       throw new BadRequestException('Image size must not exceed 5MB');
     }
   }
 
-  async createProductHistory(history: ProductHistoryInput, session?: any): Promise<ProductHistoryDocument> {
+  async createProductHistory(
+    history: ProductHistoryInput,
+    session?: any,
+  ): Promise<ProductHistoryDocument> {
     try {
-      console.log('[ProductService][createProductHistory] Creating product history:', { history });
+      this.logger.log(
+        '[ProductService][createProductHistory] Creating product history:',
+        { history },
+      );
 
       const newHistory = new this.productHistoryModel({
         ...history,
@@ -260,11 +351,19 @@ export class ProductService {
       });
 
       await newHistory.save({ session });
-      console.log('[ProductService][createProductHistory] History created:', { historyId: newHistory._id });
+      this.logger.log(
+        '[ProductService][createProductHistory] History created:',
+        { historyId: newHistory._id },
+      );
       return newHistory;
     } catch (error) {
-      console.error('[ProductService][createProductHistory] Error creating product history:', error);
-      throw new BadRequestException(error.message || 'Failed to create product history');
+      this.logger.error(
+        '[ProductService][createProductHistory] Error creating product history:',
+        error,
+      );
+      throw new BadRequestException(
+        error.message || 'Failed to create product history',
+      );
     }
   }
 
@@ -275,33 +374,50 @@ export class ProductService {
     userRole: UserRoleEnum[],
     page: number = 1,
     limit: number = 10,
-  ): Promise<{ history: ProductHistoryDocument[], total: number }> {
+  ): Promise<{ history: ProductHistoryDocument[]; total: number }> {
     try {
-      console.log('[ProductService][getProductHistory] Fetching product history:', {
-        productId,
-        ownerId,
-        storeId,
-        userRole,
-        page,
-        limit,
-      });
+      this.logger.log(
+        '[ProductService][getProductHistory] Fetching product history:',
+        {
+          productId,
+          ownerId,
+          storeId,
+          userRole,
+          page,
+          limit,
+        },
+      );
 
-      if (!userRole.includes(UserRoleEnum.STORE_OWNER) && !userRole.includes(UserRoleEnum.ADMIN)) {
-        console.error('[ProductService][getProductHistory] Unauthorized access:', { ownerId, userRole });
-        throw new UnauthorizedException('Only store owners or admins can view product history');
+      if (
+        !userRole.includes(UserRoleEnum.STORE_OWNER) &&
+        !userRole.includes(UserRoleEnum.ADMIN)
+      ) {
+        this.logger.error(
+          '[ProductService][getProductHistory] Unauthorized access:',
+          { ownerId, userRole },
+        );
+        throw new UnauthorizedException(
+          'Only store owners or admins can view product history',
+        );
       }
 
       if (!Types.ObjectId.isValid(productId)) {
-        console.error('[ProductService][getProductHistory] Invalid product ID:', { productId });
+        this.logger.error(
+          '[ProductService][getProductHistory] Invalid product ID:',
+          { productId },
+        );
         throw new BadRequestException('Invalid product ID');
       }
       if (!Types.ObjectId.isValid(storeId)) {
-        console.error('[ProductService][getProductHistory] Invalid store ID:', { storeId });
+        this.logger.error(
+          '[ProductService][getProductHistory] Invalid store ID:',
+          { storeId },
+        );
         throw new BadRequestException('Invalid store ID');
       }
       // ownerId validation is important if you later decide to filter history by owner (e.g., if multiple admins exist)
       // if (!Types.ObjectId.isValid(ownerId)) {
-      //   console.error('[ProductService][getProductHistory] Invalid owner ID:', { ownerId });
+      //   this.logger.error('[ProductService][getProductHistory] Invalid owner ID:', { ownerId });
       //   throw new BadRequestException('Invalid owner ID');
       // }
 
@@ -314,8 +430,13 @@ export class ProductService {
         .exec();
 
       if (!product) {
-        console.error('[ProductService][getProductHistory] Product not found in store:', { productId, storeId });
-        throw new NotFoundException('Product not found or you do not have permission for this store');
+        this.logger.error(
+          '[ProductService][getProductHistory] Product not found in store:',
+          { productId, storeId },
+        );
+        throw new NotFoundException(
+          'Product not found or you do not have permission for this store',
+        );
       }
 
       // --- FIX: Query the actual ProductHistory model ---
@@ -338,23 +459,34 @@ export class ProductService {
         this.productHistoryModel.countDocuments(historyQuery),
       ]);
 
-      console.log('[ProductService][getProductHistory] Product history fetched:', {
-        productId,
-        historyCount: history.length,
-        total,
-      });
+      this.logger.log(
+        '[ProductService][getProductHistory] Product history fetched:',
+        {
+          productId,
+          historyCount: history.length,
+          total,
+        },
+      );
 
       return { history, total };
     } catch (error) {
-      console.error('[ProductService][getProductHistory] Error fetching product history:', error);
+      this.logger.error(
+        '[ProductService][getProductHistory] Error fetching product history:',
+        error,
+      );
       // Re-throw specific exceptions
-      if (error instanceof UnauthorizedException || error instanceof BadRequestException || error instanceof NotFoundException) {
+      if (
+        error instanceof UnauthorizedException ||
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
         throw error;
       }
-      throw new BadRequestException(error.message || 'Failed to fetch product history');
+      throw new BadRequestException(
+        error.message || 'Failed to fetch product history',
+      );
     }
   }
-
 
   async getFilteredProducts(
     filterProductDto: FilterProductDto,
@@ -363,17 +495,23 @@ export class ProductService {
     page: number = 1,
     limit: number = 10,
   ): Promise<any> {
-    console.log('[ProductService][getFilteredProducts] Fetching filtered products:', {
-      ownerId,
-      storeId,
-      filter: filterProductDto,
-      page,
-      limit,
-    });
+    this.logger.log(
+      '[ProductService][getFilteredProducts] Fetching filtered products:',
+      {
+        ownerId,
+        storeId,
+        filter: filterProductDto,
+        page,
+        limit,
+      },
+    );
 
     const { category, search } = filterProductDto;
     // Filtering by createdBy (ownerId) and store is correct for tenancy
-    const query: any = { createdBy: new Types.ObjectId(ownerId), store: new Types.ObjectId(storeId) };
+    const query: any = {
+      createdBy: new Types.ObjectId(ownerId),
+      store: new Types.ObjectId(storeId),
+    };
 
     if (search) {
       query.$or = [
@@ -388,17 +526,25 @@ export class ProductService {
         query.categoryId = new Types.ObjectId(category);
       } else {
         try {
-          const categoryEntity = await this.categoryService.findOneByName(category);
+          const categoryEntity =
+            await this.categoryService.findOneByName(category);
           if (categoryEntity) {
             query.categoryId = categoryEntity._id;
           } else {
-            console.warn(`[ProductService][getFilteredProducts] Category name '${category}' not found. No category filter applied.`);
+            this.logger.warn(
+              `[ProductService][getFilteredProducts] Category name '${category}' not found. No category filter applied.`,
+            );
             // If category doesn't exist, it implies no products match, but don't throw an error for a non-existent filter
             // Consider throwing if a category filter is mandatory and not found: throw new NotFoundException(`Category '${category}' not found.`);
           }
         } catch (error) {
-          console.error('[ProductService][getFilteredProducts] Error looking up category by name:', error);
-          throw new BadRequestException('Failed to process category filter due to an internal error.');
+          this.logger.error(
+            '[ProductService][getFilteredProducts] Error looking up category by name:',
+            error,
+          );
+          throw new BadRequestException(
+            'Failed to process category filter due to an internal error.',
+          );
         }
       }
     }
@@ -414,7 +560,11 @@ export class ProductService {
 
     const total = await this.productModel.countDocuments(query);
 
-    console.log('[ProductService][getFilteredProducts] Products fetched:', { total, page, limit });
+    this.logger.log('[ProductService][getFilteredProducts] Products fetched:', {
+      total,
+      page,
+      limit,
+    });
 
     return {
       data: products,
@@ -425,61 +575,109 @@ export class ProductService {
     };
   }
 
-  async findOne(id: string, ownerId: string, storeId: string): Promise<ProductDocument> {
+  async findOne(
+    id: string,
+    ownerId: string,
+    storeId: string,
+  ): Promise<ProductDocument> {
     try {
-      console.log('[ProductService][findOne] Fetching product:', { id, ownerId, storeId });
+      this.logger.log('[ProductService][findOne] Fetching product:', {
+        id,
+        ownerId,
+        storeId,
+      });
 
       if (!Types.ObjectId.isValid(id)) {
-        console.error('[ProductService][findOne] Invalid product ID format:', { id });
+        this.logger.error(
+          '[ProductService][findOne] Invalid product ID format:',
+          { id },
+        );
         throw new BadRequestException(`Invalid product ID format: ${id}`);
       }
       if (!Types.ObjectId.isValid(ownerId)) {
-        console.error('[ProductService][findOne] Invalid owner ID format:', { ownerId });
+        this.logger.error(
+          '[ProductService][findOne] Invalid owner ID format:',
+          { ownerId },
+        );
         throw new BadRequestException(`Invalid owner ID format: ${ownerId}`);
       }
       if (!Types.ObjectId.isValid(storeId)) {
-        console.error('[ProductService][findOne] Invalid store ID format:', { storeId });
+        this.logger.error(
+          '[ProductService][findOne] Invalid store ID format:',
+          { storeId },
+        );
         throw new BadRequestException(`Invalid store ID format: ${storeId}`);
       }
 
       const product = await this.productModel
-        .findOne({ _id: new Types.ObjectId(id), createdBy: new Types.ObjectId(ownerId), store: new Types.ObjectId(storeId) })
+        .findOne({
+          _id: new Types.ObjectId(id),
+          createdBy: new Types.ObjectId(ownerId),
+          store: new Types.ObjectId(storeId),
+        })
         .populate('categoryId')
         .exec();
       if (!product) {
-        console.error('[ProductService][findOne] Product not found:', { id, ownerId, storeId });
-        throw new NotFoundException('Product not found or you do not have permission');
+        this.logger.error('[ProductService][findOne] Product not found:', {
+          id,
+          ownerId,
+          storeId,
+        });
+        throw new NotFoundException(
+          'Product not found or you do not have permission',
+        );
       }
 
-      console.log('[ProductService][findOne] Product fetched:', { productId: id });
+      this.logger.log('[ProductService][findOne] Product fetched:', {
+        productId: id,
+      });
       return product;
     } catch (error) {
-      console.error('[ProductService][findOne] Error fetching product:', { id, error: error.message });
+      this.logger.error('[ProductService][findOne] Error fetching product:', {
+        id,
+        error: error.message,
+      });
       // Re-throw specific exceptions
-      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
         throw error;
       }
-      throw new BadRequestException(error.message || `Failed to fetch product with ID: ${id}`);
+      throw new BadRequestException(
+        error.message || `Failed to fetch product with ID: ${id}`,
+      );
     }
   }
 
-
-  async searchProductByCode(code: string, ownerId: string, storeId: string): Promise<ProductDocument | null> {
+  async searchProductByCode(
+    code: string,
+    ownerId: string,
+    storeId: string,
+  ): Promise<ProductDocument | null> {
     try {
-      console.log('[ProductService][searchProductByCode] Searching product:', { code, ownerId, storeId });
+      this.logger.log(
+        '[ProductService][searchProductByCode] Searching product:',
+        { code, ownerId, storeId },
+      );
 
       if (!code) {
-        console.error('[ProductService][searchProductByCode] Product code is required');
+        this.logger.error(
+          '[ProductService][searchProductByCode] Product code is required',
+        );
         throw new BadRequestException('Product code is required');
       }
       if (!Types.ObjectId.isValid(storeId)) {
-        console.error('[ProductService][searchProductByCode] Invalid store ID:', { storeId });
+        this.logger.error(
+          '[ProductService][searchProductByCode] Invalid store ID:',
+          { storeId },
+        );
         throw new BadRequestException('Invalid store ID');
       }
       // Decided to keep this method NOT filtered by ownerId in the query itself, aligning with checkProductExistenceByCode
       // If it should be strictly within an owner's products, uncomment ownerId filter below.
       // if (!Types.ObjectId.isValid(ownerId)) {
-      //   console.error('[ProductService][searchProductByCode] Invalid owner ID:', { ownerId });
+      //   this.logger.error('[ProductService][searchProductByCode] Invalid owner ID:', { ownerId });
       //   throw new BadRequestException('Invalid owner ID');
       // }
 
@@ -492,14 +690,23 @@ export class ProductService {
         .populate('categoryId')
         .exec();
 
-      console.log('[ProductService][searchProductByCode] Search result:', { found: !!product, code, storeId });
+      this.logger.log('[ProductService][searchProductByCode] Search result:', {
+        found: !!product,
+        code,
+        storeId,
+      });
       return product;
     } catch (error) {
-      console.error('[ProductService][searchProductByCode] Error searching product:', error);
+      this.logger.error(
+        '[ProductService][searchProductByCode] Error searching product:',
+        error,
+      );
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new BadRequestException(error.message || 'Failed to search product');
+      throw new BadRequestException(
+        error.message || 'Failed to search product',
+      );
     }
   }
 
@@ -514,36 +721,63 @@ export class ProductService {
   ): Promise<ProductDocument> {
     const session = await this.productModel.db.startSession();
     try {
-      console.log('[ProductService][updateProduct] Attempting to update product:', { id, ownerId, storeId, userRole, updateProductDto, hasFile: !!file });
+      this.logger.log(
+        '[ProductService][updateProduct] Attempting to update product:',
+        { id, ownerId, storeId, userRole, updateProductDto, hasFile: !!file },
+      );
 
       // Authorization check
-      if (!userRole.includes(UserRoleEnum.STORE_OWNER) && !userRole.includes(UserRoleEnum.ADMIN)) {
-        console.error('[ProductService][updateProduct] Unauthorized access:', { ownerId, userRole });
-        throw new UnauthorizedException('Only store owners or admins can update products');
+      if (
+        !userRole.includes(UserRoleEnum.STORE_OWNER) &&
+        !userRole.includes(UserRoleEnum.ADMIN)
+      ) {
+        this.logger.error(
+          '[ProductService][updateProduct] Unauthorized access:',
+          { ownerId, userRole },
+        );
+        throw new UnauthorizedException(
+          'Only store owners or admins can update products',
+        );
       }
 
       // Validate IDs
       if (!Types.ObjectId.isValid(id)) {
-        console.error('[ProductService][updateProduct] Invalid product ID:', { id });
+        this.logger.error(
+          '[ProductService][updateProduct] Invalid product ID:',
+          { id },
+        );
         throw new BadRequestException('Invalid product ID');
       }
       if (!Types.ObjectId.isValid(storeId)) {
-        console.error('[ProductService][updateProduct] Invalid store ID:', { storeId });
+        this.logger.error('[ProductService][updateProduct] Invalid store ID:', {
+          storeId,
+        });
         throw new BadRequestException('Invalid store ID');
       }
       if (!Types.ObjectId.isValid(ownerId)) {
-        console.error('[ProductService][updateProduct] Invalid owner ID:', { ownerId });
+        this.logger.error('[ProductService][updateProduct] Invalid owner ID:', {
+          ownerId,
+        });
         throw new BadRequestException('Invalid owner ID');
       }
 
       // Find existing product (ensuring ownership)
       const existingProduct = await this.productModel
-        .findOne({ _id: new Types.ObjectId(id), createdBy: new Types.ObjectId(ownerId), store: new Types.ObjectId(storeId) })
+        .findOne({
+          _id: new Types.ObjectId(id),
+          createdBy: new Types.ObjectId(ownerId),
+          store: new Types.ObjectId(storeId),
+        })
         .session(session)
         .exec();
       if (!existingProduct) {
-        console.error('[ProductService][updateProduct] Product not found for update or unauthorized:', { id, ownerId, storeId });
-        throw new NotFoundException('Product not found or you do not have permission');
+        this.logger.error(
+          '[ProductService][updateProduct] Product not found for update or unauthorized:',
+          { id, ownerId, storeId },
+        );
+        throw new NotFoundException(
+          'Product not found or you do not have permission',
+        );
       }
 
       // Store old image URL for potential deletion AFTER successful update and new upload
@@ -552,7 +786,6 @@ export class ProductService {
       if (oldImageUrl) {
         oldImageFileId = this.getImageKitFileId(oldImageUrl);
       }
-
 
       // Handle image update
       let finalImageUrl: string | undefined = existingProduct.imageUrl; // Default to existing
@@ -566,18 +799,25 @@ export class ProductService {
           });
           finalImageUrl = uploadResponse.url;
         } catch (error) {
-          console.error('[ProductService][updateProduct] Failed to upload new file to ImageKit. Keeping existing image or no image if current is null:', error);
+          this.logger.error(
+            '[ProductService][updateProduct] Failed to upload new file to ImageKit. Keeping existing image or no image if current is null:',
+            error,
+          );
           // Log the error but proceed without updating the image if upload failed
         }
-      } else if (updateProductDto.imageUrl) {
+      } else if (updateProductDto.imageUrl || imageUrl) {
+        const suppliedImageUrl = updateProductDto.imageUrl || imageUrl;
         // Only attempt to download/reupload if it's a new URL or different from existing
-        if (updateProductDto.imageUrl !== existingProduct.imageUrl) {
-          if (!isURL(updateProductDto.imageUrl)) {
-            console.error('[ProductService][updateProduct] Invalid image URL provided in DTO:', { imageUrl: updateProductDto.imageUrl });
+        if (suppliedImageUrl !== existingProduct.imageUrl) {
+          if (!isURL(suppliedImageUrl)) {
+            this.logger.error(
+              '[ProductService][updateProduct] Invalid image URL provided:',
+              { imageUrl: suppliedImageUrl },
+            );
             throw new BadRequestException('Invalid image URL');
           }
           try {
-            const imageBuffer = await this.downloadImage(updateProductDto.imageUrl);
+            const imageBuffer = await this.downloadImage(suppliedImageUrl);
             const uploadResponse = await imagekit.upload({
               file: imageBuffer,
               fileName: `product_${id}_${Date.now()}.jpg`,
@@ -585,40 +825,51 @@ export class ProductService {
             });
             finalImageUrl = uploadResponse.url;
           } catch (error) {
-            console.error('[ProductService][updateProduct] Failed to download or upload external image via URL. Keeping existing image or no image if current is null:', error);
+            this.logger.error(
+              '[ProductService][updateProduct] Failed to download or upload external image via URL. Keeping existing image or no image if current is null:',
+              error,
+            );
             // Log the error but proceed without updating the image
           }
         }
-      } else if (updateProductDto.imageUrl === null) { // Explicitly handle case where frontend sends null to remove image
+      } else if (updateProductDto.imageUrl === null) {
+        // Explicitly handle case where frontend sends null to remove image
         finalImageUrl = undefined; // Set to undefined to clear it
       }
-
 
       // Start transaction
       const updatedProduct = await session.withTransaction(async () => {
         // Handle category update
         if (updateProductDto.category) {
-          const categoryEntity = await this.categoryService.findOrCreate(updateProductDto.category, session);
+          const categoryEntity = await this.categoryService.findOrCreate(
+            updateProductDto.category,
+            session,
+          );
           existingProduct.categoryId = categoryEntity._id as Types.ObjectId;
           existingProduct.category = updateProductDto.category;
-        } else if (updateProductDto.category === null) { // Allow clearing category
+        } else if (updateProductDto.category === null) {
+          // Allow clearing category
           existingProduct.categoryId = undefined;
           existingProduct.category = undefined;
         }
 
         // Record quantity change in history BEFORE updating quantity on product
-        if (updateProductDto.quantity !== undefined && updateProductDto.quantity !== existingProduct.quantity) {
-          const quantityChange = updateProductDto.quantity - existingProduct.quantity;
+        if (
+          updateProductDto.quantity !== undefined &&
+          updateProductDto.quantity !== existingProduct.quantity
+        ) {
+          const quantityChange =
+            updateProductDto.quantity - existingProduct.quantity;
           await this.createProductHistory(
             {
-             type: quantityChange > 0 ? 'restock' : 'sale_adjustment',
+              type: quantityChange > 0 ? 'restock' : 'sale_adjustment',
               quantity: quantityChange, // Store the difference
               product: new Types.ObjectId(existingProduct._id.toString()),
               store: new Types.ObjectId(storeId),
               userId: new Types.ObjectId(ownerId),
               notes: `Quantity changed from ${existingProduct.quantity} to ${updateProductDto.quantity} via product edit`,
             },
-            session
+            session,
           );
         }
 
@@ -637,22 +888,40 @@ export class ProductService {
       if (oldImageFileId && finalImageUrl !== oldImageUrl) {
         try {
           await imagekit.deleteFile(oldImageFileId);
-          console.log('[ProductService][updateProduct] Old image deleted:', { oldImageFileId });
+          this.logger.log(
+            '[ProductService][updateProduct] Old image deleted:',
+            { oldImageFileId },
+          );
         } catch (error) {
-          console.error('[ProductService][updateProduct] Failed to delete old image from ImageKit:', { oldImageFileId, error });
+          this.logger.error(
+            '[ProductService][updateProduct] Failed to delete old image from ImageKit:',
+            { oldImageFileId, error },
+          );
           // Log the error but do not throw, as the product update is complete
         }
       }
 
-      console.log('[ProductService][updateProduct] Product updated successfully:', { productId: id });
+      this.logger.log(
+        '[ProductService][updateProduct] Product updated successfully:',
+        { productId: id },
+      );
       return updatedProduct;
     } catch (error) {
-      console.error('[ProductService][updateProduct] Error updating product:', error);
+      this.logger.error(
+        '[ProductService][updateProduct] Error updating product:',
+        error,
+      );
       // Re-throw specific exceptions
-      if (error instanceof UnauthorizedException || error instanceof BadRequestException || error instanceof NotFoundException) {
+      if (
+        error instanceof UnauthorizedException ||
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
         throw error;
       }
-      throw new BadRequestException(error.message || 'Failed to update product');
+      throw new BadRequestException(
+        error.message || 'Failed to update product',
+      );
     } finally {
       session.endSession();
     }
@@ -668,144 +937,242 @@ export class ProductService {
       // Remove leading slash if present, as ImageKit path might not expect it
       return path.startsWith('/') ? path.slice(1) : path;
     } catch (error) {
-      console.error('[ProductService][getImageKitFileId] Invalid image URL to extract file ID:', { imageUrl, error });
+      this.logger.error(
+        '[ProductService][getImageKitFileId] Invalid image URL to extract file ID:',
+        { imageUrl, error },
+      );
       return null;
     }
   }
 
-
-  async deleteProduct(id: string, ownerId: string, storeId: string, userRole: UserRoleEnum[]): Promise<{ deleted: boolean }> {
+  async deleteProduct(
+    id: string,
+    ownerId: string,
+    storeId: string,
+    userRole: UserRoleEnum[],
+  ): Promise<{ deleted: boolean }> {
     const session = await this.productModel.db.startSession();
     try {
-      console.log('[ProductService][deleteProduct] Attempting to delete product:', { id, ownerId, storeId, userRole });
+      this.logger.log(
+        '[ProductService][deleteProduct] Attempting to delete product:',
+        { id, ownerId, storeId, userRole },
+      );
 
-      if (!userRole.includes(UserRoleEnum.STORE_OWNER) && !userRole.includes(UserRoleEnum.ADMIN)) {
-        console.error('[ProductService][deleteProduct] Unauthorized access:', { ownerId, userRole });
-        throw new UnauthorizedException('Only store owners or admins can delete products');
+      if (
+        !userRole.includes(UserRoleEnum.STORE_OWNER) &&
+        !userRole.includes(UserRoleEnum.ADMIN)
+      ) {
+        this.logger.error(
+          '[ProductService][deleteProduct] Unauthorized access:',
+          { ownerId, userRole },
+        );
+        throw new UnauthorizedException(
+          'Only store owners or admins can delete products',
+        );
       }
 
       if (!Types.ObjectId.isValid(id)) {
-        console.error('[ProductService][deleteProduct] Invalid product ID:', { id });
+        this.logger.error(
+          '[ProductService][deleteProduct] Invalid product ID:',
+          { id },
+        );
         throw new BadRequestException('Invalid product ID');
       }
       if (!Types.ObjectId.isValid(storeId)) {
-        console.error('[ProductService][deleteProduct] Invalid store ID:', { storeId });
+        this.logger.error('[ProductService][deleteProduct] Invalid store ID:', {
+          storeId,
+        });
         throw new BadRequestException('Invalid store ID');
       }
       if (!Types.ObjectId.isValid(ownerId)) {
-        console.error('[ProductService][deleteProduct] Invalid owner ID:', { ownerId });
+        this.logger.error('[ProductService][deleteProduct] Invalid owner ID:', {
+          ownerId,
+        });
         throw new BadRequestException('Invalid owner ID');
       }
 
       // Find the product first to get its image URL before deletion
-      const productToDelete = await this.productModel.findOne({
-        _id: new Types.ObjectId(id),
-        createdBy: new Types.ObjectId(ownerId),
-        store: new Types.ObjectId(storeId),
-      }).session(session).exec();
+      const productToDelete = await this.productModel
+        .findOne({
+          _id: new Types.ObjectId(id),
+          createdBy: new Types.ObjectId(ownerId),
+          store: new Types.ObjectId(storeId),
+        })
+        .session(session)
+        .exec();
 
       if (!productToDelete) {
-        console.error('[ProductService][deleteProduct] Product not found for deletion or unauthorized:', { id, ownerId, storeId });
-        throw new NotFoundException('Product not found or you do not have permission');
+        this.logger.error(
+          '[ProductService][deleteProduct] Product not found for deletion or unauthorized:',
+          { id, ownerId, storeId },
+        );
+        throw new NotFoundException(
+          'Product not found or you do not have permission',
+        );
       }
 
       const oldImageFileId = this.getImageKitFileId(productToDelete.imageUrl);
 
-      const result = await session.withTransaction(async () => {
+      await session.withTransaction(async () => {
         // Delete the product itself
-        const deleteProductResult = await this.productModel.deleteOne({
-          _id: new Types.ObjectId(id),
-          createdBy: new Types.ObjectId(ownerId),
-          store: new Types.ObjectId(storeId),
-        }).session(session).exec();
+        const deleteProductResult = await this.productModel
+          .deleteOne({
+            _id: new Types.ObjectId(id),
+            createdBy: new Types.ObjectId(ownerId),
+            store: new Types.ObjectId(storeId),
+          })
+          .session(session)
+          .exec();
 
         if (deleteProductResult.deletedCount === 0) {
           // This case should ideally be caught by the productToDelete check above, but for robustness
-          throw new NotFoundException('Product not found for deletion or you do not have permission');
+          throw new NotFoundException(
+            'Product not found for deletion or you do not have permission',
+          );
         }
 
         // Remove product reference from the store
-        await this.storeModel.updateOne(
-          { _id: new Types.ObjectId(storeId) },
-          { $pull: { products: new Types.ObjectId(id) } }
-        ).session(session).exec();
+        await this.storeModel
+          .updateOne(
+            { _id: new Types.ObjectId(storeId) },
+            { $pull: { products: new Types.ObjectId(id) } },
+          )
+          .session(session)
+          .exec();
 
         // Delete associated product history records
-        await this.productHistoryModel.deleteMany({
-          product: new Types.ObjectId(id),
-          store: new Types.ObjectId(storeId),
-        }).session(session).exec();
+        await this.productHistoryModel
+          .deleteMany({
+            product: new Types.ObjectId(id),
+            store: new Types.ObjectId(storeId),
+          })
+          .session(session)
+          .exec();
 
         return deleteProductResult;
       });
-
 
       // --- NEW: Delete associated image from ImageKit (outside transaction) ---
       if (oldImageFileId) {
         try {
           await imagekit.deleteFile(oldImageFileId);
-          console.log('[ProductService][deleteProduct] Associated ImageKit image deleted:', { oldImageFileId });
+          this.logger.log(
+            '[ProductService][deleteProduct] Associated ImageKit image deleted:',
+            { oldImageFileId },
+          );
         } catch (imageDeleteError) {
-          console.error('[ProductService][deleteProduct] Failed to delete associated ImageKit image:', { oldImageFileId, imageDeleteError });
+          this.logger.error(
+            '[ProductService][deleteProduct] Failed to delete associated ImageKit image:',
+            { oldImageFileId, imageDeleteError },
+          );
           // Log the error but do not throw, as the database operations are complete
         }
       }
 
-      console.log('[ProductService][deleteProduct] Product and associated data deleted successfully:', { productId: id });
+      this.logger.log(
+        '[ProductService][deleteProduct] Product and associated data deleted successfully:',
+        { productId: id },
+      );
       return { deleted: true };
     } catch (error) {
-      console.error('[ProductService][deleteProduct] Error deleting product:', error);
+      this.logger.error(
+        '[ProductService][deleteProduct] Error deleting product:',
+        error,
+      );
       // Re-throw specific exceptions
-      if (error instanceof UnauthorizedException || error instanceof BadRequestException || error instanceof NotFoundException) {
+      if (
+        error instanceof UnauthorizedException ||
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
         throw error;
       }
-      throw new BadRequestException(error.message || 'Failed to delete product');
+      throw new BadRequestException(
+        error.message || 'Failed to delete product',
+      );
     } finally {
       session.endSession();
     }
   }
 
-  async supplyProduct(id: string, additionalQuantity: number, ownerId: string, storeId: string, userRole: UserRoleEnum[]): Promise<ProductDocument> {
+  async supplyProduct(
+    id: string,
+    additionalQuantity: number,
+    ownerId: string,
+    storeId: string,
+    userRole: UserRoleEnum[],
+  ): Promise<ProductDocument> {
     const session = await this.productModel.db.startSession();
     try {
-      console.log('[ProductService][supplyProduct] Attempting to supply product:', {
-        id,
-        ownerId,
-        storeId,
-        additionalQuantity,
-        userRole,
-      });
+      this.logger.log(
+        '[ProductService][supplyProduct] Attempting to supply product:',
+        {
+          id,
+          ownerId,
+          storeId,
+          additionalQuantity,
+          userRole,
+        },
+      );
 
-      if (!userRole.includes(UserRoleEnum.STORE_OWNER) && !userRole.includes(UserRoleEnum.ADMIN)) {
-        console.error('[ProductService][supplyProduct] Unauthorized access:', { ownerId, userRole });
-        throw new UnauthorizedException('Only store owners or admins can supply products');
+      if (
+        !userRole.includes(UserRoleEnum.STORE_OWNER) &&
+        !userRole.includes(UserRoleEnum.ADMIN)
+      ) {
+        this.logger.error(
+          '[ProductService][supplyProduct] Unauthorized access:',
+          { ownerId, userRole },
+        );
+        throw new UnauthorizedException(
+          'Only store owners or admins can supply products',
+        );
       }
 
       if (!Types.ObjectId.isValid(id)) {
-        console.error('[ProductService][supplyProduct] Invalid product ID:', { id });
+        this.logger.error(
+          '[ProductService][supplyProduct] Invalid product ID:',
+          { id },
+        );
         throw new BadRequestException('Invalid product ID');
       }
       if (!Types.ObjectId.isValid(ownerId)) {
-        console.error('[ProductService][supplyProduct] Invalid owner ID:', { ownerId });
+        this.logger.error('[ProductService][supplyProduct] Invalid owner ID:', {
+          ownerId,
+        });
         throw new BadRequestException('Invalid owner ID');
       }
       if (!Types.ObjectId.isValid(storeId)) {
-        console.error('[ProductService][supplyProduct] Invalid store ID:', { storeId });
+        this.logger.error('[ProductService][supplyProduct] Invalid store ID:', {
+          storeId,
+        });
         throw new BadRequestException('Invalid store ID');
       }
 
       const product = await this.productModel
-        .findOne({ _id: new Types.ObjectId(id), createdBy: new Types.ObjectId(ownerId), store: new Types.ObjectId(storeId) })
+        .findOne({
+          _id: new Types.ObjectId(id),
+          createdBy: new Types.ObjectId(ownerId),
+          store: new Types.ObjectId(storeId),
+        })
         .session(session)
         .exec();
 
       if (!product) {
-        console.error('[ProductService][supplyProduct] Product not found for supply or unauthorized:', { id, ownerId, storeId });
-        throw new NotFoundException('Product not found or you do not have permission');
+        this.logger.error(
+          '[ProductService][supplyProduct] Product not found for supply or unauthorized:',
+          { id, ownerId, storeId },
+        );
+        throw new NotFoundException(
+          'Product not found or you do not have permission',
+        );
       }
 
-      if (additionalQuantity <= 0) { // Changed to <= 0, as 0 additional quantity doesn't make sense for 'supply'
-        console.error('[ProductService][supplyProduct] Additional quantity must be positive for supply:', { additionalQuantity });
+      if (additionalQuantity <= 0) {
+        // Changed to <= 0, as 0 additional quantity doesn't make sense for 'supply'
+        this.logger.error(
+          '[ProductService][supplyProduct] Additional quantity must be positive for supply:',
+          { additionalQuantity },
+        );
         throw new BadRequestException('Additional quantity must be positive');
       }
 
@@ -814,26 +1181,40 @@ export class ProductService {
         product.updatedAt = new Date();
         await product.save({ session });
 
-        await this.createProductHistory({
-          type: 'restock',
-          quantity: additionalQuantity,
-          product: new Types.ObjectId(product._id.toString()),
-          store: new Types.ObjectId(storeId),
-          userId: new Types.ObjectId(ownerId),
-          notes: 'Product restocked via supply operation',
-        }, session);
+        await this.createProductHistory(
+          {
+            type: 'restock',
+            quantity: additionalQuantity,
+            product: new Types.ObjectId(product._id.toString()),
+            store: new Types.ObjectId(storeId),
+            userId: new Types.ObjectId(ownerId),
+            notes: 'Product restocked via supply operation',
+          },
+          session,
+        );
         return product;
       });
 
-
-      console.log('[ProductService][supplyProduct] Product supplied successfully:', { productId: id, newQuantity: updatedProduct.quantity });
+      this.logger.log(
+        '[ProductService][supplyProduct] Product supplied successfully:',
+        { productId: id, newQuantity: updatedProduct.quantity },
+      );
       return updatedProduct;
     } catch (error) {
-      console.error('[ProductService][supplyProduct] Error supplying product:', error);
-      if (error instanceof UnauthorizedException || error instanceof BadRequestException || error instanceof NotFoundException) {
+      this.logger.error(
+        '[ProductService][supplyProduct] Error supplying product:',
+        error,
+      );
+      if (
+        error instanceof UnauthorizedException ||
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
         throw error;
       }
-      throw new BadRequestException(error.message || 'Failed to supply product');
+      throw new BadRequestException(
+        error.message || 'Failed to supply product',
+      );
     } finally {
       session.endSession();
     }
@@ -845,21 +1226,26 @@ export class ProductService {
     storeId: string,
     userRole: UserRoleEnum[],
     imageUrl?: string,
-    file?: Express.Multer.File
+    file?: Express.Multer.File,
   ): Promise<ProductDocument> {
     try {
-      console.log('[ProductService][scanAndAddProduct] Attempting to scan and add product:', {
-        storeId,
-        ownerId,
-        productName: createProductDto.name,
-        code: createProductDto.code,
-        userRole,
-        imageUrl,
-        hasFile: !!file,
-      });
+      this.logger.log(
+        '[ProductService][scanAndAddProduct] Attempting to scan and add product:',
+        {
+          storeId,
+          ownerId,
+          productName: createProductDto.name,
+          code: createProductDto.code,
+          userRole,
+          imageUrl,
+          hasFile: !!file,
+        },
+      );
 
       if (!createProductDto.code) {
-        console.error('[ProductService][scanAndAddProduct] Product code is required');
+        this.logger.error(
+          '[ProductService][scanAndAddProduct] Product code is required',
+        );
         throw new BadRequestException('Product code is required for scanning');
       }
 
@@ -868,25 +1254,44 @@ export class ProductService {
         .findOne({ code: createProductDto.code, store: storeId })
         .exec();
       if (existingProduct) {
-        console.error('[ProductService][scanAndAddProduct] Product code already exists, cannot add new:', {
-          code: createProductDto.code,
-          productId: existingProduct._id,
-        });
-        throw new ConflictException(`Product with code ${createProductDto.code} already exists`);
+        this.logger.error(
+          '[ProductService][scanAndAddProduct] Product code already exists, cannot add new:',
+          {
+            code: createProductDto.code,
+            productId: existingProduct._id,
+          },
+        );
+        throw new ConflictException(
+          `Product with code ${createProductDto.code} already exists`,
+        );
       }
 
       // If not existing, proceed with standard addProduct logic
-      return await this.addProduct(createProductDto, ownerId, storeId, userRole, imageUrl, file);
+      return await this.addProduct(
+        createProductDto,
+        ownerId,
+        storeId,
+        userRole,
+        imageUrl,
+        file,
+      );
     } catch (error) {
-      console.error('[ProductService][scanAndAddProduct] Error in scan and add product:', error);
-      if (error instanceof ConflictException || error instanceof UnauthorizedException || error instanceof BadRequestException) {
+      this.logger.error(
+        '[ProductService][scanAndAddProduct] Error in scan and add product:',
+        error,
+      );
+      if (
+        error instanceof ConflictException ||
+        error instanceof UnauthorizedException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
-      throw new BadRequestException(error.message || 'Failed to scan and add product');
+      throw new BadRequestException(
+        error.message || 'Failed to scan and add product',
+      );
     }
   }
-
-
 
   async checkProductExistenceByCode(
     code: string,
@@ -894,18 +1299,26 @@ export class ProductService {
     storeId: string,
   ): Promise<{ exists: boolean; product?: ProductDocument }> {
     try {
-      console.log('[ProductService][checkProductExistenceByCode] Checking product existence:', {
-        code,
-        ownerId,
-        storeId,
-      });
+      this.logger.log(
+        '[ProductService][checkProductExistenceByCode] Checking product existence:',
+        {
+          code,
+          ownerId,
+          storeId,
+        },
+      );
 
       if (!code) {
-        console.error('[ProductService][checkProductExistenceByCode] Product code is required');
+        this.logger.error(
+          '[ProductService][checkProductExistenceByCode] Product code is required',
+        );
         throw new BadRequestException('Product code is required');
       }
       if (!Types.ObjectId.isValid(storeId)) {
-        console.error('[ProductService][checkProductExistenceByCode] Invalid store ID:', { storeId });
+        this.logger.error(
+          '[ProductService][checkProductExistenceByCode] Invalid store ID:',
+          { storeId },
+        );
         throw new BadRequestException('Invalid store ID');
       }
       // Assuming this check is meant to be able to find any product by code within a given store,
@@ -915,7 +1328,7 @@ export class ProductService {
         .findOne({ code, store: new Types.ObjectId(storeId) })
         .exec();
 
-      console.log('[ProductService][checkProductExistenceByCode] Result:', {
+      this.logger.log('[ProductService][checkProductExistenceByCode] Result:', {
         exists: !!product,
         code,
         productId: product?._id,
@@ -925,11 +1338,16 @@ export class ProductService {
 
       return { exists: !!product, product: product || undefined };
     } catch (error) {
-      console.error('[ProductService][checkProductExistenceByCode] Error checking product existence:', error);
+      this.logger.error(
+        '[ProductService][checkProductExistenceByCode] Error checking product existence:',
+        error,
+      );
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new BadRequestException(error.message || 'Failed to check product existence');
+      throw new BadRequestException(
+        error.message || 'Failed to check product existence',
+      );
     }
   }
 
@@ -941,21 +1359,35 @@ export class ProductService {
     limit: number = 10,
   ): Promise<any> {
     try {
-      console.log('[ProductService][getExpiringProducts] Fetching expiring products:', {
-        ownerId,
-        storeId,
-        days,
-        page,
-        limit,
-      });
+      this.logger.log(
+        '[ProductService][getExpiringProducts] Fetching expiring products:',
+        {
+          ownerId,
+          storeId,
+          days,
+          page,
+          limit,
+        },
+      );
 
-      if (!Types.ObjectId.isValid(ownerId) || !Types.ObjectId.isValid(storeId)) {
-        console.error('[ProductService][getExpiringProducts] Invalid input:', { ownerId, storeId });
+      if (
+        !Types.ObjectId.isValid(ownerId) ||
+        !Types.ObjectId.isValid(storeId)
+      ) {
+        this.logger.error(
+          '[ProductService][getExpiringProducts] Invalid input:',
+          { ownerId, storeId },
+        );
         throw new BadRequestException('Invalid ownerId or storeId');
       }
       if (days < 0) {
-        console.error('[ProductService][getExpiringProducts] Days cannot be negative:', { days });
-        throw new BadRequestException('Days for expiry window cannot be negative');
+        this.logger.error(
+          '[ProductService][getExpiringProducts] Days cannot be negative:',
+          { days },
+        );
+        throw new BadRequestException(
+          'Days for expiry window cannot be negative',
+        );
       }
 
       const today = new Date();
@@ -966,7 +1398,6 @@ export class ProductService {
       expiryThreshold.setDate(today.getDate() + days);
       // Set to end of day to include products expiring throughout the last day
       expiryThreshold.setHours(23, 59, 59, 999);
-
 
       const query = {
         createdBy: new Types.ObjectId(ownerId),
@@ -985,7 +1416,10 @@ export class ProductService {
 
       const total = await this.productModel.countDocuments(query);
 
-      console.log('[ProductService][getExpiringProducts] Products fetched:', { total, page, limit });
+      this.logger.log(
+        '[ProductService][getExpiringProducts] Products fetched:',
+        { total, page, limit },
+      );
 
       return {
         data: products,
@@ -996,11 +1430,16 @@ export class ProductService {
         expiryWindow: `${days} days`,
       };
     } catch (error) {
-      console.error('[ProductService][getExpiringProducts] Error fetching expiring products:', error);
+      this.logger.error(
+        '[ProductService][getExpiringProducts] Error fetching expiring products:',
+        error,
+      );
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new BadRequestException(error.message || 'Failed to fetch expiring products');
+      throw new BadRequestException(
+        error.message || 'Failed to fetch expiring products',
+      );
     }
   }
 
@@ -1012,20 +1451,32 @@ export class ProductService {
     limit: number = 10,
   ): Promise<any> {
     try {
-      console.log('[ProductService][getLowStockProducts] Fetching low stock products:', {
-        ownerId,
-        storeId,
-        threshold,
-        page,
-        limit,
-      });
+      this.logger.log(
+        '[ProductService][getLowStockProducts] Fetching low stock products:',
+        {
+          ownerId,
+          storeId,
+          threshold,
+          page,
+          limit,
+        },
+      );
 
-      if (!Types.ObjectId.isValid(ownerId) || !Types.ObjectId.isValid(storeId)) {
-        console.error('[ProductService][getLowStockProducts] Invalid input:', { ownerId, storeId });
+      if (
+        !Types.ObjectId.isValid(ownerId) ||
+        !Types.ObjectId.isValid(storeId)
+      ) {
+        this.logger.error(
+          '[ProductService][getLowStockProducts] Invalid input:',
+          { ownerId, storeId },
+        );
         throw new BadRequestException('Invalid ownerId or storeId');
       }
       if (threshold < 0) {
-        console.error('[ProductService][getLowStockProducts] Threshold cannot be negative:', { threshold });
+        this.logger.error(
+          '[ProductService][getLowStockProducts] Threshold cannot be negative:',
+          { threshold },
+        );
         throw new BadRequestException('Stock threshold cannot be negative');
       }
 
@@ -1046,7 +1497,10 @@ export class ProductService {
 
       const total = await this.productModel.countDocuments(query);
 
-      console.log('[ProductService][getLowStockProducts] Products fetched:', { total, page, limit });
+      this.logger.log(
+        '[ProductService][getLowStockProducts] Products fetched:',
+        { total, page, limit },
+      );
 
       return {
         data: products,
@@ -1057,111 +1511,168 @@ export class ProductService {
         stockThreshold: threshold,
       };
     } catch (error) {
-      console.error('[ProductService][getLowStockProducts] Error fetching low stock products:', error);
+      this.logger.error(
+        '[ProductService][getLowStockProducts] Error fetching low stock products:',
+        error,
+      );
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new BadRequestException(error.message || 'Failed to fetch low stock products');
+      throw new BadRequestException(
+        error.message || 'Failed to fetch low stock products',
+      );
     }
   }
 
-  async getTotalStock(ownerId: string, storeId: string): Promise<{ totalQuantity: number; totalValue: number }> {
+  async getTotalStock(
+    ownerId: string,
+    storeId: string,
+  ): Promise<{ totalQuantity: number; totalValue: number }> {
     try {
-      console.log('[ProductService][getTotalStock] Calculating total stock and value:', { ownerId, storeId });
+      this.logger.log(
+        '[ProductService][getTotalStock] Calculating total stock and value:',
+        { ownerId, storeId },
+      );
 
-      if (!Types.ObjectId.isValid(ownerId) || !Types.ObjectId.isValid(storeId)) {
-        console.error('[ProductService][getTotalStock] Invalid input:', { ownerId, storeId });
+      if (
+        !Types.ObjectId.isValid(ownerId) ||
+        !Types.ObjectId.isValid(storeId)
+      ) {
+        this.logger.error('[ProductService][getTotalStock] Invalid input:', {
+          ownerId,
+          storeId,
+        });
         throw new BadRequestException('Invalid ownerId or storeId');
       }
 
       // Aggregate to sum quantities and calculate total value
-      const aggregationResult = await this.productModel.aggregate([
-        {
-          $match: {
-            createdBy: new Types.ObjectId(ownerId),
-            store: new Types.ObjectId(storeId),
-            quantity: { $gt: 0 } // Only count products currently in stock
-          }
-        },
-        {
-          $group: {
-            _id: null, // Group all matching documents into a single group
-            totalQuantity: { $sum: '$quantity' },
-            // Assuming `price` is the selling price and `costPrice` is the cost.
-            // Using `price` for total value calculation for sales/inventory valuation.
-            totalValue: { $sum: { $multiply: ['$quantity', '$price'] } }
-          }
-        }
-      ]).exec();
+      const aggregationResult = await this.productModel
+        .aggregate([
+          {
+            $match: {
+              createdBy: new Types.ObjectId(ownerId),
+              store: new Types.ObjectId(storeId),
+              quantity: { $gt: 0 }, // Only count products currently in stock
+            },
+          },
+          {
+            $group: {
+              _id: null, // Group all matching documents into a single group
+              totalQuantity: { $sum: '$quantity' },
+              // Assuming `price` is the selling price and `costPrice` is the cost.
+              // Using `price` for total value calculation for sales/inventory valuation.
+              totalValue: { $sum: { $multiply: ['$quantity', '$price'] } },
+            },
+          },
+        ])
+        .exec();
 
       // Extract results, default to 0 if no products found
-      const totalQuantity = aggregationResult.length > 0 ? aggregationResult[0].totalQuantity : 0;
-      const totalValue = aggregationResult.length > 0 ? aggregationResult[0].totalValue : 0;
+      const totalQuantity =
+        aggregationResult.length > 0 ? aggregationResult[0].totalQuantity : 0;
+      const totalValue =
+        aggregationResult.length > 0 ? aggregationResult[0].totalValue : 0;
 
-      console.log('[ProductService][getTotalStock] Total stock calculated:', { totalQuantity, totalValue });
+      this.logger.log(
+        '[ProductService][getTotalStock] Total stock calculated:',
+        { totalQuantity, totalValue },
+      );
 
       // The frontend's `connect().get('products/total-stock/$storeId')` that expects `response.data['data']`
       // implies that the controller might wrap this service's return in a `data` field.
       // So, the service should return the raw object, and the controller handles the wrapping.
       return { totalQuantity, totalValue };
     } catch (error) {
-      console.error('[ProductService][getTotalStock] Error calculating total stock:', error);
+      this.logger.error(
+        '[ProductService][getTotalStock] Error calculating total stock:',
+        error,
+      );
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new BadRequestException(error.message || 'Failed to calculate total stock.');
+      throw new BadRequestException(
+        error.message || 'Failed to calculate total stock.',
+      );
     }
   }
 
-  async getInventorySummary(ownerId: string, storeId: string): Promise<{
+  async getInventorySummary(
+    ownerId: string,
+    storeId: string,
+  ): Promise<{
     totalCost: number;
     totalSellingPrice: number;
     totalQuantity: number;
   }> {
     try {
-      console.log('[ProductService][getInventorySummary] Fetching inventory summary:', { ownerId, storeId });
+      this.logger.log(
+        '[ProductService][getInventorySummary] Fetching inventory summary:',
+        { ownerId, storeId },
+      );
 
-      if (!Types.ObjectId.isValid(ownerId) || !Types.ObjectId.isValid(storeId)) {
-        console.error('[ProductService][getInventorySummary] Invalid input:', { ownerId, storeId });
+      if (
+        !Types.ObjectId.isValid(ownerId) ||
+        !Types.ObjectId.isValid(storeId)
+      ) {
+        this.logger.error(
+          '[ProductService][getInventorySummary] Invalid input:',
+          { ownerId, storeId },
+        );
         throw new BadRequestException('Invalid ownerId or storeId');
       }
 
       // --- FIX: Use aggregation for efficiency and accuracy ---
-      const aggregationResult = await this.productModel.aggregate([
-        {
-          $match: {
-            createdBy: new Types.ObjectId(ownerId),
-            store: new Types.ObjectId(storeId),
-            quantity: { $gt: 0 } // Only consider products currently in stock
-          }
-        },
-        {
-          $group: {
-            _id: null, // Group all matching documents into a single result
-            totalQuantity: { $sum: '$quantity' },
-            // Sum of quantity * selling price
-            totalSellingPrice: { $sum: { $multiply: ['$quantity', '$price'] } },
-            // Sum of quantity * cost price. Use $ifNull to handle cases where costPrice might be undefined/null.
-            totalCost: { $sum: { $multiply: ['$quantity', { $ifNull: ['$costPrice', 0] }] } }
-          }
-        }
-      ]).exec();
+      const aggregationResult = await this.productModel
+        .aggregate([
+          {
+            $match: {
+              createdBy: new Types.ObjectId(ownerId),
+              store: new Types.ObjectId(storeId),
+              quantity: { $gt: 0 }, // Only consider products currently in stock
+            },
+          },
+          {
+            $group: {
+              _id: null, // Group all matching documents into a single result
+              totalQuantity: { $sum: '$quantity' },
+              // Sum of quantity * selling price
+              totalSellingPrice: {
+                $sum: { $multiply: ['$quantity', '$price'] },
+              },
+              // Sum of quantity * cost price. Use $ifNull to handle cases where costPrice might be undefined/null.
+              totalCost: {
+                $sum: {
+                  $multiply: ['$quantity', { $ifNull: ['$costPrice', 0] }],
+                },
+              },
+            },
+          },
+        ])
+        .exec();
 
       // Extract results, default to 0 if no products found or aggregation returns empty array
-      const summary = aggregationResult.length > 0 ? aggregationResult[0] : { totalQuantity: 0, totalSellingPrice: 0, totalCost: 0 };
+      const summary =
+        aggregationResult.length > 0
+          ? aggregationResult[0]
+          : { totalQuantity: 0, totalSellingPrice: 0, totalCost: 0 };
 
       // Ensure fixed decimal places for monetary values for consistency
       // Note: For critical financial data, consider storing/calculating as integers (e.g., cents)
       // or using a dedicated library like 'decimal.js' to avoid floating-point issues.
       const totalCost = parseFloat(summary.totalCost.toFixed(2));
-      const totalSellingPrice = parseFloat(summary.totalSellingPrice.toFixed(2));
+      const totalSellingPrice = parseFloat(
+        summary.totalSellingPrice.toFixed(2),
+      );
       const totalQuantity = summary.totalQuantity;
 
-      console.log('[ProductService][getInventorySummary] Summary fetched:', {
-        totalCost,
-        totalSellingPrice,
-        totalQuantity,
-      });
+      this.logger.log(
+        '[ProductService][getInventorySummary] Summary fetched:',
+        {
+          totalCost,
+          totalSellingPrice,
+          totalQuantity,
+        },
+      );
 
       return {
         totalCost,
@@ -1169,11 +1680,16 @@ export class ProductService {
         totalQuantity,
       };
     } catch (error) {
-      console.error('[ProductService][getInventorySummary] Error fetching inventory summary:', error);
+      this.logger.error(
+        '[ProductService][getInventorySummary] Error fetching inventory summary:',
+        error,
+      );
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new BadRequestException(error.message || 'Failed to fetch inventory summary');
+      throw new BadRequestException(
+        error.message || 'Failed to fetch inventory summary',
+      );
     }
   }
 
@@ -1192,29 +1708,35 @@ export class ProductService {
     totalCost?: number; // Add these fields to align with total inventory overview
   }> {
     try {
-      console.log('[ProductService][getExpiringAndLowStockProducts] Fetching expiring and low stock products:', {
-        ownerId,
-        storeId,
-        expiryDays,
-        stockThreshold,
-        page,
-        limit,
-      });
+      this.logger.log(
+        '[ProductService][getExpiringAndLowStockProducts] Fetching expiring and low stock products:',
+        {
+          ownerId,
+          storeId,
+          expiryDays,
+          stockThreshold,
+          page,
+          limit,
+        },
+      );
 
       // Fetch all three concurrently for efficiency
       const [expiring, lowStock, inventorySummary] = await Promise.all([
         this.getExpiringProducts(ownerId, storeId, expiryDays, page, limit),
         this.getLowStockProducts(ownerId, storeId, stockThreshold, page, limit),
-        this.getInventorySummary(ownerId, storeId) // Use the improved getInventorySummary
+        this.getInventorySummary(ownerId, storeId), // Use the improved getInventorySummary
       ]);
 
-      console.log('[ProductService][getExpiringAndLowStockProducts] Data fetched:', {
-        expiringCount: expiring.total,
-        lowStockCount: lowStock.total,
-        totalQuantity: inventorySummary.totalQuantity,
-        totalSellingPrice: inventorySummary.totalSellingPrice,
-        totalCost: inventorySummary.totalCost,
-      });
+      this.logger.log(
+        '[ProductService][getExpiringAndLowStockProducts] Data fetched:',
+        {
+          expiringCount: expiring.total,
+          lowStockCount: lowStock.total,
+          totalQuantity: inventorySummary.totalQuantity,
+          totalSellingPrice: inventorySummary.totalSellingPrice,
+          totalCost: inventorySummary.totalCost,
+        },
+      );
 
       return {
         expiringProducts: expiring,
@@ -1224,59 +1746,100 @@ export class ProductService {
         totalCost: inventorySummary.totalCost,
       };
     } catch (error) {
-      console.error('[ProductService][getExpiringAndLowStockProducts] Error fetching expiring and low stock products:', error);
+      this.logger.error(
+        '[ProductService][getExpiringAndLowStockProducts] Error fetching expiring and low stock products:',
+        error,
+      );
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new BadRequestException(error.message || 'Failed to fetch expiring and low stock products');
+      throw new BadRequestException(
+        error.message || 'Failed to fetch expiring and low stock products',
+      );
     }
   }
 
-  async getProductByCode(code: string, storeId: string, user: User): Promise<Product> {
+  async getProductByCode(
+    code: string,
+    storeId: string,
+    user: User,
+  ): Promise<Product> {
     if (!Types.ObjectId.isValid(storeId)) {
       throw new BadRequestException('Invalid store ID');
     }
 
     // This method is intentionally scoped to products created by the specific user in the given store.
-    const product = await this.productModel.findOne({ code, store: storeId, createdBy: user._id }).exec();
+    const product = await this.productModel
+      .findOne({ code, store: storeId, createdBy: user._id })
+      .exec();
     if (!product) {
-      throw new NotFoundException(`Product with code ${code} not found in store ${storeId} for this user`);
+      throw new NotFoundException(
+        `Product with code ${code} not found in store ${storeId} for this user`,
+      );
     }
 
     return product;
   }
 
-  async sendOutProduct(dto: ProductMovementDto, ownerId: string, storeId: string, userRole: UserRoleEnum[]): Promise<ProductDocument> {
+  async sendOutProduct(
+    dto: ProductMovementDto,
+    ownerId: string,
+    storeId: string,
+    userRole: UserRoleEnum[],
+  ): Promise<ProductDocument> {
     try {
-      console.log('[ProductService][sendOutProduct] Attempting to send out product:', {
-        productCode: dto.productCode,
-        ownerId,
-        storeId,
-        quantity: dto.quantity,
-        userRole,
-      });
+      this.logger.log(
+        '[ProductService][sendOutProduct] Attempting to send out product:',
+        {
+          productCode: dto.productCode,
+          ownerId,
+          storeId,
+          quantity: dto.quantity,
+          userRole,
+        },
+      );
 
-      if (!userRole.includes(UserRoleEnum.STORE_OWNER) && !userRole.includes(UserRoleEnum.ADMIN)) {
-        console.error('[ProductService][sendOutProduct] Unauthorized access:', { ownerId, userRole });
-        throw new UnauthorizedException('Only store owners or admins can send out products');
+      if (
+        !userRole.includes(UserRoleEnum.STORE_OWNER) &&
+        !userRole.includes(UserRoleEnum.ADMIN)
+      ) {
+        this.logger.error(
+          '[ProductService][sendOutProduct] Unauthorized access:',
+          { ownerId, userRole },
+        );
+        throw new UnauthorizedException(
+          'Only store owners or admins can send out products',
+        );
       }
 
       if (!Types.ObjectId.isValid(storeId)) {
-        console.error('[ProductService][sendOutProduct] Invalid store ID:', { storeId });
+        this.logger.error(
+          '[ProductService][sendOutProduct] Invalid store ID:',
+          { storeId },
+        );
         throw new BadRequestException('Invalid store ID');
       }
 
       if (!dto.productCode || dto.quantity <= 0) {
-        console.error('[ProductService][sendOutProduct] Invalid input: Product code and positive quantity are required', { productCode: dto.productCode, quantity: dto.quantity });
-        throw new BadRequestException('Product code and positive quantity are required');
+        this.logger.error(
+          '[ProductService][sendOutProduct] Invalid input: Product code and positive quantity are required',
+          { productCode: dto.productCode, quantity: dto.quantity },
+        );
+        throw new BadRequestException(
+          'Product code and positive quantity are required',
+        );
       }
 
       // Check if the store exists and if the owner has permission for it.
       // For general product movement, finding just the store is enough.
       // Owner-store relationship might be implicitly handled by permissions at controller level.
-      const store = await this.storeModel.findOne({ _id: new Types.ObjectId(storeId) }).exec();
+      const store = await this.storeModel
+        .findOne({ _id: new Types.ObjectId(storeId) })
+        .exec();
       if (!store) {
-        console.error('[ProductService][sendOutProduct] Store not found:', { storeId });
+        this.logger.error('[ProductService][sendOutProduct] Store not found:', {
+          storeId,
+        });
         throw new NotFoundException('Store not found');
       }
 
@@ -1285,31 +1848,52 @@ export class ProductService {
         .findOne({ code: dto.productCode, store: new Types.ObjectId(storeId) })
         .exec();
       if (!product) {
-        console.error('[ProductService][sendOutProduct] Product not found:', { productCode: dto.productCode, storeId });
-        throw new NotFoundException(`Product with code ${dto.productCode} not found in store`);
+        this.logger.error(
+          '[ProductService][sendOutProduct] Product not found:',
+          { productCode: dto.productCode, storeId },
+        );
+        throw new NotFoundException(
+          `Product with code ${dto.productCode} not found in store`,
+        );
       }
 
       if (product.quantity < dto.quantity) {
-        console.error('[ProductService][sendOutProduct] Insufficient quantity:', {
-          productCode: dto.productCode,
-          available: product.quantity,
-          requested: dto.quantity,
-        });
-        throw new BadRequestException(`Insufficient quantity for product ${dto.productCode}. Available: ${product.quantity}`);
+        this.logger.error(
+          '[ProductService][sendOutProduct] Insufficient quantity:',
+          {
+            productCode: dto.productCode,
+            available: product.quantity,
+            requested: dto.quantity,
+          },
+        );
+        throw new BadRequestException(
+          `Insufficient quantity for product ${dto.productCode}. Available: ${product.quantity}`,
+        );
       }
 
       if (dto.deliveryAgentId) {
         if (!Types.ObjectId.isValid(dto.deliveryAgentId)) {
-          console.error('[ProductService][sendOutProduct] Invalid delivery agent ID format:', { deliveryAgentId: dto.deliveryAgentId });
+          this.logger.error(
+            '[ProductService][sendOutProduct] Invalid delivery agent ID format:',
+            { deliveryAgentId: dto.deliveryAgentId },
+          );
           throw new BadRequestException('Invalid delivery agent ID format');
         }
         // Assuming deliveriesModel is for Delivery Agents and they are linked to a store
         const deliveryAgent = await this.deliveriesModel
-          .findOne({ _id: new Types.ObjectId(dto.deliveryAgentId), store: new Types.ObjectId(storeId) })
+          .findOne({
+            _id: new Types.ObjectId(dto.deliveryAgentId),
+            store: new Types.ObjectId(storeId),
+          })
           .exec();
         if (!deliveryAgent) {
-          console.error('[ProductService][sendOutProduct] Delivery agent not found or not associated with this store:', { deliveryAgentId: dto.deliveryAgentId, storeId });
-          throw new NotFoundException('Delivery agent not found or not associated with this store');
+          this.logger.error(
+            '[ProductService][sendOutProduct] Delivery agent not found or not associated with this store:',
+            { deliveryAgentId: dto.deliveryAgentId, storeId },
+          );
+          throw new NotFoundException(
+            'Delivery agent not found or not associated with this store',
+          );
         }
       }
 
@@ -1321,64 +1905,109 @@ export class ProductService {
           await product.save({ session });
 
           // History is created using the service's internal method
-          await this.createProductHistory({
-            type: 'sent_out',
-            quantity: dto.quantity,
-            product: new Types.ObjectId(product._id.toString()),
-            store: new Types.ObjectId(storeId),
-            userId: new Types.ObjectId(ownerId), // userId is the user performing the action
-            deliveryAgentId: dto.deliveryAgentId ? new Types.ObjectId(dto.deliveryAgentId) : undefined,
-            notes: dto.notes || 'Product sent out of store',
-          }, session); // Pass session to history creation
+          await this.createProductHistory(
+            {
+              type: 'sent_out',
+              quantity: dto.quantity,
+              product: new Types.ObjectId(product._id.toString()),
+              store: new Types.ObjectId(storeId),
+              userId: new Types.ObjectId(ownerId), // userId is the user performing the action
+              deliveryAgentId: dto.deliveryAgentId
+                ? new Types.ObjectId(dto.deliveryAgentId)
+                : undefined,
+              notes: dto.notes || 'Product sent out of store',
+            },
+            session,
+          ); // Pass session to history creation
 
           return product;
         });
 
-        console.log('[ProductService][sendOutProduct] Product sent out successfully:', {
-          productId: product._id,
-          newQuantity: product.quantity,
-        });
+        this.logger.log(
+          '[ProductService][sendOutProduct] Product sent out successfully:',
+          {
+            productId: product._id,
+            newQuantity: product.quantity,
+          },
+        );
         return result;
       } finally {
         session.endSession();
       }
     } catch (error) {
-      console.error('[ProductService][sendOutProduct] Error sending out product:', error);
-      if (error instanceof NotFoundException || error instanceof UnauthorizedException || error instanceof BadRequestException) {
+      this.logger.error(
+        '[ProductService][sendOutProduct] Error sending out product:',
+        error,
+      );
+      if (
+        error instanceof NotFoundException ||
+        error instanceof UnauthorizedException ||
+        error instanceof BadRequestException
+      ) {
         throw error; // Re-throw specific exceptions as they are
       }
-      throw new BadRequestException(error.message || 'Failed to send out product');
+      throw new BadRequestException(
+        error.message || 'Failed to send out product',
+      );
     }
   }
 
-  async receiveProduct(dto: ProductMovementDto, ownerId: string, storeId: string, userRole: UserRoleEnum[]): Promise<ProductDocument> {
+  async receiveProduct(
+    dto: ProductMovementDto,
+    ownerId: string,
+    storeId: string,
+    userRole: UserRoleEnum[],
+  ): Promise<ProductDocument> {
     try {
-      console.log('[ProductService][receiveProduct] Attempting to receive product:', {
-        productCode: dto.productCode,
-        ownerId,
-        storeId,
-        quantity: dto.quantity,
-        userRole,
-      });
+      this.logger.log(
+        '[ProductService][receiveProduct] Attempting to receive product:',
+        {
+          productCode: dto.productCode,
+          ownerId,
+          storeId,
+          quantity: dto.quantity,
+          userRole,
+        },
+      );
 
-      if (!userRole.includes(UserRoleEnum.STORE_OWNER) && !userRole.includes(UserRoleEnum.ADMIN)) {
-        console.error('[ProductService][receiveProduct] Unauthorized access:', { ownerId, userRole });
-        throw new UnauthorizedException('Only store owners or admins can receive products');
+      if (
+        !userRole.includes(UserRoleEnum.STORE_OWNER) &&
+        !userRole.includes(UserRoleEnum.ADMIN)
+      ) {
+        this.logger.error(
+          '[ProductService][receiveProduct] Unauthorized access:',
+          { ownerId, userRole },
+        );
+        throw new UnauthorizedException(
+          'Only store owners or admins can receive products',
+        );
       }
 
       if (!Types.ObjectId.isValid(storeId)) {
-        console.error('[ProductService][receiveProduct] Invalid store ID:', { storeId });
+        this.logger.error(
+          '[ProductService][receiveProduct] Invalid store ID:',
+          { storeId },
+        );
         throw new BadRequestException('Invalid store ID');
       }
 
       if (!dto.productCode || dto.quantity <= 0) {
-        console.error('[ProductService][receiveProduct] Invalid input: Product code and positive quantity are required', { productCode: dto.productCode, quantity: dto.quantity });
-        throw new BadRequestException('Product code and positive quantity are required');
+        this.logger.error(
+          '[ProductService][receiveProduct] Invalid input: Product code and positive quantity are required',
+          { productCode: dto.productCode, quantity: dto.quantity },
+        );
+        throw new BadRequestException(
+          'Product code and positive quantity are required',
+        );
       }
 
-      const store = await this.storeModel.findOne({ _id: new Types.ObjectId(storeId) }).exec();
+      const store = await this.storeModel
+        .findOne({ _id: new Types.ObjectId(storeId) })
+        .exec();
       if (!store) {
-        console.error('[ProductService][receiveProduct] Store not found:', { storeId });
+        this.logger.error('[ProductService][receiveProduct] Store not found:', {
+          storeId,
+        });
         throw new NotFoundException('Store not found');
       }
 
@@ -1386,21 +2015,37 @@ export class ProductService {
         .findOne({ code: dto.productCode, store: new Types.ObjectId(storeId) })
         .exec();
       if (!product) {
-        console.error('[ProductService][receiveProduct] Product not found:', { productCode: dto.productCode, storeId });
-        throw new NotFoundException(`Product with code ${dto.productCode} not found in store`);
+        this.logger.error(
+          '[ProductService][receiveProduct] Product not found:',
+          { productCode: dto.productCode, storeId },
+        );
+        throw new NotFoundException(
+          `Product with code ${dto.productCode} not found in store`,
+        );
       }
 
       if (dto.deliveryAgentId) {
         if (!Types.ObjectId.isValid(dto.deliveryAgentId)) {
-          console.error('[ProductService][receiveProduct] Invalid delivery agent ID format:', { deliveryAgentId: dto.deliveryAgentId });
+          this.logger.error(
+            '[ProductService][receiveProduct] Invalid delivery agent ID format:',
+            { deliveryAgentId: dto.deliveryAgentId },
+          );
           throw new BadRequestException('Invalid delivery agent ID format');
         }
         const deliveryAgent = await this.deliveriesModel
-          .findOne({ _id: new Types.ObjectId(dto.deliveryAgentId), store: new Types.ObjectId(storeId) })
+          .findOne({
+            _id: new Types.ObjectId(dto.deliveryAgentId),
+            store: new Types.ObjectId(storeId),
+          })
           .exec();
         if (!deliveryAgent) {
-          console.error('[ProductService][receiveProduct] Delivery agent not found or not associated with this store:', { deliveryAgentId: dto.deliveryAgentId, storeId });
-          throw new NotFoundException('Delivery agent not found or not associated with this store');
+          this.logger.error(
+            '[ProductService][receiveProduct] Delivery agent not found or not associated with this store:',
+            { deliveryAgentId: dto.deliveryAgentId, storeId },
+          );
+          throw new NotFoundException(
+            'Delivery agent not found or not associated with this store',
+          );
         }
       }
 
@@ -1412,33 +2057,50 @@ export class ProductService {
           await product.save({ session });
 
           // History is created using the service's internal method
-          await this.createProductHistory({
-            type: 'received',
-            quantity: dto.quantity,
-            product: new Types.ObjectId(product._id.toString()),
-            store: new Types.ObjectId(storeId),
-            userId: new Types.ObjectId(ownerId), // userId is the user performing the action
-            deliveryAgentId: dto.deliveryAgentId ? new Types.ObjectId(dto.deliveryAgentId) : undefined,
-            notes: dto.notes || 'Product received into store',
-          }, session); // Pass session to history creation
+          await this.createProductHistory(
+            {
+              type: 'received',
+              quantity: dto.quantity,
+              product: new Types.ObjectId(product._id.toString()),
+              store: new Types.ObjectId(storeId),
+              userId: new Types.ObjectId(ownerId), // userId is the user performing the action
+              deliveryAgentId: dto.deliveryAgentId
+                ? new Types.ObjectId(dto.deliveryAgentId)
+                : undefined,
+              notes: dto.notes || 'Product received into store',
+            },
+            session,
+          ); // Pass session to history creation
 
           return product;
         });
 
-        console.log('[ProductService][receiveProduct] Product received successfully:', {
-          productId: product._id,
-          newQuantity: product.quantity,
-        });
+        this.logger.log(
+          '[ProductService][receiveProduct] Product received successfully:',
+          {
+            productId: product._id,
+            newQuantity: product.quantity,
+          },
+        );
         return result;
       } finally {
         session.endSession();
       }
     } catch (error) {
-      console.error('[ProductService][receiveProduct] Error receiving product:', error);
-      if (error instanceof NotFoundException || error instanceof UnauthorizedException || error instanceof BadRequestException) {
+      this.logger.error(
+        '[ProductService][receiveProduct] Error receiving product:',
+        error,
+      );
+      if (
+        error instanceof NotFoundException ||
+        error instanceof UnauthorizedException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
-      throw new BadRequestException(error.message || 'Failed to receive product');
+      throw new BadRequestException(
+        error.message || 'Failed to receive product',
+      );
     }
   }
 
@@ -1447,18 +2109,33 @@ export class ProductService {
     storeId: string,
     ownerId: string,
     file?: Express.Multer.File,
-    imageUrl?: string
+    imageUrl?: string,
   ): Promise<ProductDocument> {
-    console.log('[ProductService][uploadProductImage] Attempting to upload/update product image:', { productId, storeId, ownerId, hasFile: !!file, hasImageUrl: !!imageUrl });
+    this.logger.log(
+      '[ProductService][uploadProductImage] Attempting to upload/update product image:',
+      { productId, storeId, ownerId, hasFile: !!file, hasImageUrl: !!imageUrl },
+    );
 
-    if (!Types.ObjectId.isValid(productId) || !Types.ObjectId.isValid(storeId) || !Types.ObjectId.isValid(ownerId)) {
-      console.error('[ProductService][uploadProductImage] Invalid input: Invalid product ID, store ID, or owner ID');
-      throw new BadRequestException('Invalid product ID, store ID, or owner ID');
+    if (
+      !Types.ObjectId.isValid(productId) ||
+      !Types.ObjectId.isValid(storeId) ||
+      !Types.ObjectId.isValid(ownerId)
+    ) {
+      this.logger.error(
+        '[ProductService][uploadProductImage] Invalid input: Invalid product ID, store ID, or owner ID',
+      );
+      throw new BadRequestException(
+        'Invalid product ID, store ID, or owner ID',
+      );
     }
 
     if (!file && !imageUrl) {
-      console.error('[ProductService][uploadProductImage] No file or URL provided for image upload');
-      throw new BadRequestException('Either an image file or URL must be provided');
+      this.logger.error(
+        '[ProductService][uploadProductImage] No file or URL provided for image upload',
+      );
+      throw new BadRequestException(
+        'Either an image file or URL must be provided',
+      );
     }
 
     const session = await this.productModel.db.startSession();
@@ -1468,8 +2145,12 @@ export class ProductService {
         .session(session)
         .exec();
       if (!product) {
-        console.error('[ProductService][uploadProductImage] Product not found or unauthorized for image upload');
-        throw new NotFoundException('Product not found or you do not have permission');
+        this.logger.error(
+          '[ProductService][uploadProductImage] Product not found or unauthorized for image upload',
+        );
+        throw new NotFoundException(
+          'Product not found or you do not have permission',
+        );
       }
 
       // --- FIX: Store old image URL before any modification ---
@@ -1486,14 +2167,23 @@ export class ProductService {
             folder: '/product_images',
           });
           finalImageUrl = uploadResponse.url;
-          console.log('[ProductService][uploadProductImage] New file uploaded:', { newUrl: finalImageUrl });
+          this.logger.log(
+            '[ProductService][uploadProductImage] New file uploaded:',
+            { newUrl: finalImageUrl },
+          );
         } catch (uploadError) {
-          console.error('[ProductService][uploadProductImage] Failed to upload new file to ImageKit. Proceeding without new image:', uploadError);
+          this.logger.error(
+            '[ProductService][uploadProductImage] Failed to upload new file to ImageKit. Proceeding without new image:',
+            uploadError,
+          );
           finalImageUrl = oldImageUrl; // Keep old image if new upload fails
         }
       } else if (imageUrl) {
         if (!isURL(imageUrl)) {
-          console.error('[ProductService][uploadProductImage] Invalid image URL provided:', { imageUrl });
+          this.logger.error(
+            '[ProductService][uploadProductImage] Invalid image URL provided:',
+            { imageUrl },
+          );
           throw new BadRequestException('Invalid image URL');
         }
         // Only re-upload if the provided URL is different from the existing one
@@ -1506,19 +2196,27 @@ export class ProductService {
               folder: '/product_images',
             });
             finalImageUrl = uploadResponse.url;
-            console.log('[ProductService][uploadProductImage] External URL image uploaded:', { newUrl: finalImageUrl });
+            this.logger.log(
+              '[ProductService][uploadProductImage] External URL image uploaded:',
+              { newUrl: finalImageUrl },
+            );
           } catch (downloadOrUploadError) {
-            console.error('[ProductService][uploadProductImage] Failed to download or upload external image. Proceeding without new image:', downloadOrUploadError);
+            this.logger.error(
+              '[ProductService][uploadProductImage] Failed to download or upload external image. Proceeding without new image:',
+              downloadOrUploadError,
+            );
             finalImageUrl = oldImageUrl; // Keep old image if new upload fails
           }
         } else {
           finalImageUrl = oldImageUrl; // URL is the same, no change needed
         }
-      } else { // Case where both file and imageUrl are null/undefined, and image needs to be removed
+      } else {
+        // Case where both file and imageUrl are null/undefined, and image needs to be removed
         finalImageUrl = undefined;
-        console.log('[ProductService][uploadProductImage] Image explicitly set to be removed.');
+        this.logger.log(
+          '[ProductService][uploadProductImage] Image explicitly set to be removed.',
+        );
       }
-
 
       // Start transaction to update product in DB
       const result = await session.withTransaction(async () => {
@@ -1534,21 +2232,38 @@ export class ProductService {
       if (oldImageFileId && finalImageUrl !== oldImageUrl) {
         try {
           await imagekit.deleteFile(oldImageFileId);
-          console.log('[ProductService][uploadProductImage] Old image deleted from ImageKit:', { oldImageFileId });
+          this.logger.log(
+            '[ProductService][uploadProductImage] Old image deleted from ImageKit:',
+            { oldImageFileId },
+          );
         } catch (deleteError) {
-          console.error('[ProductService][uploadProductImage] Failed to delete old image from ImageKit:', { oldImageFileId, deleteError });
+          this.logger.error(
+            '[ProductService][uploadProductImage] Failed to delete old image from ImageKit:',
+            { oldImageFileId, deleteError },
+          );
           // Log the error but do not throw, as the product update is complete
         }
       }
 
-      console.log('[ProductService][uploadProductImage] Product image operation completed:', { productId, finalImageUrl });
+      this.logger.log(
+        '[ProductService][uploadProductImage] Product image operation completed:',
+        { productId, finalImageUrl },
+      );
       return result;
     } catch (error) {
-      console.error('[ProductService][uploadProductImage] Error during product image operation:', error);
-      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+      this.logger.error(
+        '[ProductService][uploadProductImage] Error during product image operation:',
+        error,
+      );
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
         throw error;
       }
-      throw new BadRequestException(error.message || 'Failed to upload product image');
+      throw new BadRequestException(
+        error.message || 'Failed to upload product image',
+      );
     } finally {
       session.endSession();
     }

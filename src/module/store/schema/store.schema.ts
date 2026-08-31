@@ -1,7 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
-
 @Schema({ timestamps: true })
 export class Store extends Document {
   @Prop({ required: true })
@@ -55,11 +54,9 @@ export class Store extends Document {
   @Prop()
   description?: string;
 
-
   @Prop({ type: [{ type: Types.ObjectId, ref: 'Product' }], default: [] })
   products: Types.ObjectId[];
 
-  
   @Prop({ required: false })
   area?: string;
 }

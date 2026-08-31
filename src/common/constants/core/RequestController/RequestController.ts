@@ -1,11 +1,11 @@
-import { AxiosRequestConfig } from "axios";
-import { AxiosRetry, AxiosRetryConfig } from "./AxiosRetry";
-import { ErrorCode } from "../Error/ErrorCode";
-import { LendsqrError } from "../Error/LendsqrError";
+import { AxiosRequestConfig } from 'axios';
+import { AxiosRetry, AxiosRetryConfig } from './AxiosRetry';
+import { ErrorCode } from '../Error/ErrorCode';
+import { LendsqrError } from '../Error/LendsqrError';
 import {
   getMessageFromApiRequestError,
   isApiRequestError,
-} from "./ApiRequestError";
+} from './ApiRequestError';
 
 export interface RequestOptions {
   headers?: { [name: string]: string };
@@ -19,11 +19,11 @@ export class RequestController {
    * Handles requests with retries and returns the response data.
    */
   public async request<Data, Response>(
-    config: AxiosRequestConfig<Data>
+    config: AxiosRequestConfig<Data>,
   ): Promise<Response> {
     const retryConfig: AxiosRetryConfig = {
       maxAttempts: 2,
-      allowedMethods: ["GET", "OPTIONS"],
+      allowedMethods: ['GET', 'OPTIONS'],
       allowedResponseStatuses: [204, 408, 413, 429, 500, 502, 503, 504],
     };
 
@@ -35,8 +35,8 @@ export class RequestController {
       });
 
       // Assume the response is wrapped in a `{ data: Response }` structure
-      if (!response || typeof response !== "object" || !("data" in response)) {
-        throw new Error("Invalid response structure");
+      if (!response || typeof response !== 'object' || !('data' in response)) {
+        throw new Error('Invalid response structure');
       }
 
       return (response as { data: Response }).data; // Safely extract `data`
@@ -80,12 +80,12 @@ export class RequestController {
     searchParams?: Record<string, unknown>,
     body?: Body,
     options?: RequestOptions,
-    abortSignal?: AbortController["signal"]
+    abortSignal?: AbortController['signal'],
   ): Promise<Response> {
     return this.request<Body, Response>({
       url,
       params: searchParams,
-      method: "POST",
+      method: 'POST',
       data: body,
       headers: options?.headers,
       signal: abortSignal,
@@ -100,12 +100,12 @@ export class RequestController {
     searchParams?: Record<string, unknown>,
     body?: Body,
     options?: RequestOptions,
-    abortSignal?: AbortController["signal"]
+    abortSignal?: AbortController['signal'],
   ): Promise<Response> {
     return this.request<Body, Response>({
       url,
       params: searchParams,
-      method: "PUT",
+      method: 'PUT',
       data: body,
       headers: options?.headers,
       signal: abortSignal,
@@ -119,12 +119,12 @@ export class RequestController {
     url: string,
     searchParams?: Record<string, unknown>,
     options?: RequestOptions,
-    abortSignal?: AbortController["signal"]
+    abortSignal?: AbortController['signal'],
   ): Promise<Response> {
     return this.request<unknown, Response>({
       url,
       params: searchParams,
-      method: "GET",
+      method: 'GET',
       headers: options?.headers,
       signal: abortSignal,
     });
@@ -138,12 +138,12 @@ export class RequestController {
     searchParams?: Record<string, unknown>,
     body?: Body,
     options?: RequestOptions,
-    abortSignal?: AbortController["signal"]
+    abortSignal?: AbortController['signal'],
   ): Promise<Response> {
     return this.request<Body, Response>({
       url,
       params: searchParams,
-      method: "DELETE",
+      method: 'DELETE',
       data: body,
       headers: options?.headers,
       signal: abortSignal,

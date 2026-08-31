@@ -1,5 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsNotEmpty, IsNumber, IsNumberString, IsOptional, IsPhoneNumber, IsString } from 'class-validator';
+import {
+  IsEmail,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsNumberString,
+  IsOptional,
+  IsPhoneNumber,
+  IsString,
+} from 'class-validator';
 import { OtpTypeEnum } from 'src/common/enums/otp.enum';
 
 export class CreateOtpDto {
@@ -32,19 +41,27 @@ export class VerifyOtpDto extends SendOtpDto {
 
 export class ValidateOtpDto extends VerifyOtpDto {}
 
-
 export class LoginDto {
-  @ApiProperty({ description: 'The referral code of the customer', required: true })
+  @ApiProperty({
+    description: 'The referral code of the customer',
+    required: true,
+  })
   @IsEmail()
   email: string;
 
-  @ApiProperty({ description: 'The referral code of the customer', required: true })
+  @ApiProperty({
+    description: 'The referral code of the customer',
+    required: true,
+  })
   @IsString()
   password: string;
 }
 
 export class VerifyEmailDto {
-  @ApiProperty({ description: 'The verification email code of the customer', required: true })
+  @ApiProperty({
+    description: 'The verification email code of the customer',
+    required: true,
+  })
   @IsEmail()
   email: string;
 
@@ -54,7 +71,10 @@ export class VerifyEmailDto {
 }
 
 export class RequestVerifyEmailOtpDto {
-  @ApiProperty({ description: 'The referral code of the customer', required: true })
+  @ApiProperty({
+    description: 'The referral code of the customer',
+    required: true,
+  })
   @IsEmail()
   email: string;
 }
@@ -82,7 +102,10 @@ export class RefreshTokenDto {
 
 // src/auth/dto/auth.dto.ts
 export class VerifyPhoneDto {
-  @ApiProperty({ description: 'The phone number of the customer', required: true })
+  @ApiProperty({
+    description: 'The phone number of the customer',
+    required: true,
+  })
   @IsString()
   phone: string;
 
@@ -92,8 +115,10 @@ export class VerifyPhoneDto {
 }
 
 export class RequestVerifyPhoneOtpDto {
-  @ApiProperty({ description: 'The phone number of the customer', required: true })
+  @ApiProperty({
+    description: 'The phone number of the customer',
+    required: true,
+  })
   @IsString()
   phone: string;
 }
-

@@ -14,4 +14,3 @@ import { TransactionsService } from './transactions.service';
   exports: [TransactionsService, TransactionRepository],
 })
 export class TransactionsModule {}
-

@@ -33,7 +33,11 @@ export class User {
   @Prop({ default: false })
   emailVerified: boolean;
 
-  @Prop({ type: [String], enum: UserRoleEnum, default: [UserRoleEnum.STORE_OWNER] })
+  @Prop({
+    type: [String],
+    enum: UserRoleEnum,
+    default: [UserRoleEnum.STORE_OWNER],
+  })
   role: UserRoleEnum[];
 
   @Prop()

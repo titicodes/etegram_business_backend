@@ -5,11 +5,9 @@ import { ProductSchema } from './schema/product.schema';
 import { ProductController } from './product.controller';
 import { ProductCategoriesRepository } from '../product-category/category.repository';
 import { ProductCategoriesService } from '../product-category/product-category.service';
-import {
-  ProductCategorySchema,
-} from '../product-category/schema/product-category.schema';
+import { ProductCategorySchema } from '../product-category/schema/product-category.schema';
 import { ProductCategoryModule } from '../product-category/product-category.module';
-import { Store, StoreSchema } from '../store/schema/store.schema';
+import { StoreSchema } from '../store/schema/store.schema';
 import { StoreModule } from '../store/store.module';
 import { ProductHistorySchema } from './schema/product-history.schema';
 import { DeliveriesSchema } from '../deliveries/schema/deliveries.schema';
@@ -25,7 +23,6 @@ import { DeliveriesSchema } from '../deliveries/schema/deliveries.schema';
     ]),
     ProductCategoryModule,
     StoreModule,
-
   ],
   controllers: [ProductController],
   providers: [
@@ -33,6 +30,6 @@ import { DeliveriesSchema } from '../deliveries/schema/deliveries.schema';
     ProductCategoriesRepository,
     ProductCategoriesService,
   ],
-  exports:[ProductService]
+  exports: [ProductService],
 })
-export class ProductModule { }
+export class ProductModule {}

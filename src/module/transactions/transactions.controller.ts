@@ -4,7 +4,6 @@ import { CoreController } from 'src/common/constants/core/controller.core';
 import { Public } from 'src/common/constants/decorators/public.decorator';
 import { ResponseMessage } from 'src/common/constants/decorators/response.decorator';
 import { RESPONSE_CONSTANT } from 'src/common/constants/response.constants';
-import { PaginationDto } from '../repository/dto/repository.dto';
 import { ViewTransactionDto } from './dto/view-transaction.dto';
 
 @Controller('transactions')
@@ -19,6 +18,4 @@ export class TransactionsController extends CoreController {
   async getAllTransactions(@Body() payload: ViewTransactionDto) {
     return await this.transactionService.getTransaction(payload);
   }
-
-  
 }

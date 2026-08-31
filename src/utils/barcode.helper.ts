@@ -1,4 +1,7 @@
 import * as QRCode from 'qrcode';
+import { Logger } from '@nestjs/common';
+
+const logger = new Logger('BarcodeHelper');
 
 export async function generateBarcode2D(text: string) {
   try {
@@ -9,7 +12,7 @@ export async function generateBarcode2D(text: string) {
       codeBase64: generateQR,
     };
   } catch (error) {
-    console.error(`Error generating barcode: ${error.message}`);
+    logger.error(`Error generating barcode: ${error.message}`, error.stack);
     throw error;
   }
 }

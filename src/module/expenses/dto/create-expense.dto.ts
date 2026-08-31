@@ -49,7 +49,6 @@ export class CreateExpenseDto {
   date?: string;
 }
 
-
 export class UpdateExpenseDto {
   @IsString()
   @IsOptional()

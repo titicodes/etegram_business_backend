@@ -1,4 +1,3 @@
-
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
@@ -46,13 +45,11 @@ export class Product extends Document {
   @Prop()
   imageUrl?: string;
 
-
   @Prop({ required: false })
   size: string;
 
   @Prop({ required: false })
   totalQuantity: number;
-
 
   @Prop({ required: false })
   supplyTo?: string;
@@ -68,7 +65,6 @@ export class Product extends Document {
 
   @Prop({ default: Date.now })
   updatedAt: Date;
-
 }
 
 export type ProductDocument = Product & Document;
@@ -76,4 +72,3 @@ export const ProductSchema = SchemaFactory.createForClass(Product);
 
 // Ensure unique product code per store and owner
 ProductSchema.index({ code: 1, owner: 1, store: 1 }, { unique: true });
-

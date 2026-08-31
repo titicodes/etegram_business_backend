@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsMongoId, IsArray, IsEnum, IsNumber } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsMongoId,
+  IsArray,
+  IsEnum,
+} from 'class-validator';
 
 enum DeliveryStatus {
   PENDING = 'PENDING',

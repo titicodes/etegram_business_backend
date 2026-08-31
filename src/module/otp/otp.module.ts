@@ -10,7 +10,7 @@ import { EmailModule } from '../email/email.module';
   imports: [
     MongooseModule.forFeature([{ name: OTP.name, schema: OTPSchema }]),
     MailModule,
-     EmailModule,
+    EmailModule,
   ],
   controllers: [OtpController],
   providers: [OtpService],

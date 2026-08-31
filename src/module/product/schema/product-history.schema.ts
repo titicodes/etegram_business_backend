@@ -11,8 +11,7 @@ export class ProductHistory {
       'adjustment',
       'sent_out',
       'received',
-      'sale_adjustment' // <-- ADD THIS NEW VALUE
-      
+      'sale_adjustment', // <-- ADD THIS NEW VALUE
     ],
   })
   type: string;
@@ -40,4 +39,5 @@ export class ProductHistory {
 }
 
 export type ProductHistoryDocument = ProductHistory & Document;
-export const ProductHistorySchema = SchemaFactory.createForClass(ProductHistory);
+export const ProductHistorySchema =
+  SchemaFactory.createForClass(ProductHistory);

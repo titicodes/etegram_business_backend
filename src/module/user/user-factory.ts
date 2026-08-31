@@ -1,6 +1,6 @@
-import { Injectable } from "@nestjs/common";
-import { CreateUserDto } from "./dto/create-user.dto";
-import { HashPassword } from "src/utils/utils";
+import { Injectable } from '@nestjs/common';
+import { CreateUserDto } from './dto/create-user.dto';
+import { HashPassword } from 'src/utils/utils';
 
 @Injectable()
 export class UserFactory {
@@ -17,12 +17,11 @@ export class UserFactory {
   // Generate a random alphanumeric token of the specified length
   private generateToken(length: number): string {
     const characters =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let token = "";
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let token = '';
     for (let i = 0; i < length; i++) {
       token += characters.charAt(Math.floor(Math.random() * characters.length));
     }
-    console.log("Generated Token:", token);
 
     return token;
   }

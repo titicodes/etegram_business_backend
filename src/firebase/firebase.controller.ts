@@ -3,7 +3,7 @@ import { FirebaseService } from './firebase.service';
 
 @Controller('firebase')
 export class FirebaseController {
-  constructor(private readonly firebaseService: FirebaseService) { }
+  constructor(private readonly firebaseService: FirebaseService) {}
 
   @Post('update-stock')
   async updateStock(@Body() body: { code: string; stock: number }) {
@@ -12,12 +12,21 @@ export class FirebaseController {
 
   @Post('track-order')
   async trackOrder(@Body() body: { orderId: string; status: string }) {
-    return await this.firebaseService.trackOrderStatus(body.orderId, body.status);
+    return await this.firebaseService.trackOrderStatus(
+      body.orderId,
+      body.status,
+    );
   }
 
   @Post('send-notification')
   async sendNotification(
-    @Body() body: { deviceToken: string; title: string; body: string; data?: Record<string, any> },
+    @Body()
+    body: {
+      deviceToken: string;
+      title: string;
+      body: string;
+      data?: Record<string, any>;
+    },
   ) {
     return await this.firebaseService.sendNotification(
       body.deviceToken,

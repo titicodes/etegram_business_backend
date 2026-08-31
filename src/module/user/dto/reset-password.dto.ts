@@ -16,8 +16,6 @@ export class ResetPasswordDto {
   confirmPassword: string; // Confirm new password
 }
 
-
-
 export class ChangePasswordDto {
   @IsString()
   @IsNotEmpty()
@@ -35,10 +33,9 @@ export class ChangePasswordDto {
   confirmPassword: string; // Confirm new password
 }
 
-
 export class ForgotPasswordDto {
-    @IsEmail()
-    @IsString()
-    @IsNotEmpty()
-    email: string; // Email to send reset link
-  }
+  @IsEmail()
+  @IsString()
+  @IsNotEmpty()
+  email: string; // Email to send reset link
+}

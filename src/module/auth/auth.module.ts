@@ -14,16 +14,18 @@ import { Store, StoreSchema } from '../store/schema/store.schema';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }, { name: Store.name, schema: StoreSchema }]),
+    MongooseModule.forFeature([
+      { name: User.name, schema: UserSchema },
+      { name: Store.name, schema: StoreSchema },
+    ]),
     UserModule,
     PassportModule,
     MailModule,
     OtpModule,
-    StoreModule
+    StoreModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, StoreService],
-  exports: [AuthService,], // Export AuthService for WalletModule
+  exports: [AuthService], // Export AuthService for WalletModule
 })
-export class AuthModule { }
-
+export class AuthModule {}

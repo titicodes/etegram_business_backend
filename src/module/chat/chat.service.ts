@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ChatMessage, ChatMessageDocument } from './schema/chat-message.schema';
@@ -7,7 +7,8 @@ import { UserService } from 'src/module/user/user.service';
 @Injectable()
 export class ChatService {
   constructor(
-    @InjectModel(ChatMessage.name) private chatMessageModel: Model<ChatMessageDocument>,
+    @InjectModel(ChatMessage.name)
+    private chatMessageModel: Model<ChatMessageDocument>,
     private readonly userService: UserService,
   ) {}
 
@@ -19,7 +20,11 @@ export class ChatService {
     return this.chatMessageModel.find({ userId }).exec();
   }
 
-  async sendMessage(userId: string | null, content: string, type: string): Promise<ChatMessage> {
+  async sendMessage(
+    userId: string | null,
+    content: string,
+    type: string,
+  ): Promise<ChatMessage> {
     if (!content || !type) {
       throw new BadRequestException('Content and type are required');
     }

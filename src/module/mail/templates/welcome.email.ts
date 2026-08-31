@@ -1,5 +1,4 @@
-import { IWelcomeEmailTemplate } from "src/common/interfaces/email-templates.interface";
-
+import { IWelcomeEmailTemplate } from 'src/common/interfaces/email-templates.interface';
 
 export function welcomeEmailTemplate(data: IWelcomeEmailTemplate) {
   return `

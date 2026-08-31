@@ -7,7 +7,6 @@ import {
   UpdateQuery,
 } from 'mongoose';
 
-
 export abstract class CoreRepository<T extends Document> {
   constructor(protected readonly entityModel: Model<T>) {}
   async findOne(
@@ -27,8 +26,6 @@ export abstract class CoreRepository<T extends Document> {
       .exec();
   }
 
-
-
   async countDocuments(entityFilterQuery: FilterQuery<T>): Promise<number> {
     return this.entityModel.countDocuments(entityFilterQuery).exec();
   }
@@ -43,14 +40,16 @@ export abstract class CoreRepository<T extends Document> {
   async create(data) {
     const document = new this.entityModel(data);
     return await document.save();
-}
+  }
 
   async createManys(createEntityData: unknown): Promise<T> {
     return this.entityModel.create(createEntityData);
   }
 
   async createMany(createEntityData: Partial<T>[]): Promise<T[]> {
-    return this.entityModel.insertMany(createEntityData) as unknown as Promise<T[]>;
+    return this.entityModel.insertMany(createEntityData) as unknown as Promise<
+      T[]
+    >;
   }
 
   async findOneAndUpdate(
@@ -68,13 +67,21 @@ export abstract class CoreRepository<T extends Document> {
     );
   }
 
-  async deleteOne(entityFilterQuery: FilterQuery<T>): Promise<{ deletedCount: number }> {
-    const deleteResult = await this.entityModel.deleteOne(entityFilterQuery).exec();
+  async deleteOne(
+    entityFilterQuery: FilterQuery<T>,
+  ): Promise<{ deletedCount: number }> {
+    const deleteResult = await this.entityModel
+      .deleteOne(entityFilterQuery)
+      .exec();
     return { deletedCount: deleteResult.deletedCount || 0 };
   }
 
-  async deleteMany(entityFilterQuery: FilterQuery<T>): Promise<{ deletedCount: number }> {
-    const deleteResult = await this.entityModel.deleteMany(entityFilterQuery).exec();
+  async deleteMany(
+    entityFilterQuery: FilterQuery<T>,
+  ): Promise<{ deletedCount: number }> {
+    const deleteResult = await this.entityModel
+      .deleteMany(entityFilterQuery)
+      .exec();
     return { deletedCount: deleteResult.deletedCount || 0 };
   }
 
@@ -108,7 +115,7 @@ export abstract class CoreRepository<T extends Document> {
   async updateTransaction(
     filter: FilterQuery<T>,
     update: UpdateQuery<T>,
-    options?: QueryOptions
+    options?: QueryOptions,
   ): Promise<T | null> {
     return this.entityModel.findOneAndUpdate(filter, update, options).exec();
   }

@@ -1,4 +1,14 @@
-import { Controller, Post, Body, Get, Param, Patch, Query, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Param,
+  Patch,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { NotificationService } from './notification.service';
 import { Roles } from 'src/common/constants/decorators/role.decorator';
 import { UserRoleEnum } from 'src/common/enums/user.enum';
@@ -35,10 +45,29 @@ export class NotificationController {
   @Roles(UserRoleEnum.ADMIN)
   @Post('broadcast')
   async sendBroadcast(
-    @Body() payload: { title: string; body: string; type?: NotificationType; role?: string; data?: Record<string, any> },
+    @Body()
+    payload: {
+      title: string;
+      body: string;
+      type?: NotificationType;
+      role?: string;
+      data?: Record<string, any>;
+    },
   ) {
-    const { title, body, type = NotificationType.PROMOTIONAL, role, data = {} } = payload;
-    await this.notificationService.sendBroadcastNotification(title, body, type, role, data);
+    const {
+      title,
+      body,
+      type = NotificationType.PROMOTIONAL,
+      role,
+      data = {},
+    } = payload;
+    await this.notificationService.sendBroadcastNotification(
+      title,
+      body,
+      type,
+      role,
+      data,
+    );
     return { message: 'Broadcast notification sent successfully' };
   }
 
@@ -50,14 +79,19 @@ export class NotificationController {
     @Query('skip') skip: string = '0',
   ) {
     const userId = req.user._id;
-    const notifications = await this.notificationService.getUserNotifications(userId, parseInt(limit), parseInt(skip));
+    const notifications = await this.notificationService.getUserNotifications(
+      userId,
+      parseInt(limit),
+      parseInt(skip),
+    );
     return { notifications };
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id/read')
   async markAsRead(@Param('id') notificationId: string) {
-    const notification = await this.notificationService.markNotificationAsRead(notificationId);
+    const notification =
+      await this.notificationService.markNotificationAsRead(notificationId);
     return { notification };
   }
 
@@ -65,7 +99,8 @@ export class NotificationController {
   @Get('unread-count')
   async getUnreadCount(@Req() req) {
     const userId = req.user._id;
-    const count = await this.notificationService.getUnreadNotificationCount(userId);
+    const count =
+      await this.notificationService.getUnreadNotificationCount(userId);
     return { unreadCount: count };
   }
 }

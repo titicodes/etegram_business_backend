@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Request, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { StoreService } from './store.service';
 import { JwtAuthGuard } from '../auth/guard/jwtGuard';
 import { CreateStoreDto } from './dto/create-store.dto';
@@ -6,7 +16,7 @@ import { UpdateStoreDto } from './dto/update-store.dto';
 
 @Controller('stores')
 export class StoreController {
-  constructor(private readonly storeService: StoreService) { }
+  constructor(private readonly storeService: StoreService) {}
 
   @UseGuards(JwtAuthGuard)
   @Post()
@@ -21,7 +31,11 @@ export class StoreController {
     @Param('parentStoreId') parentStoreId: string,
     @Request() req: any,
   ) {
-    return this.storeService.createBranch(createDto, req.user._id.toString(), parentStoreId);
+    return this.storeService.createBranch(
+      createDto,
+      req.user._id.toString(),
+      parentStoreId,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -38,7 +52,11 @@ export class StoreController {
 
   @UseGuards(JwtAuthGuard)
   @Put(':id')
-  update(@Param('id') id: string, @Body() updateDto: UpdateStoreDto, @Request() req: any) {
+  update(
+    @Param('id') id: string,
+    @Body() updateDto: UpdateStoreDto,
+    @Request() req: any,
+  ) {
     return this.storeService.update(id, updateDto, req.user._id.toString());
   }
 

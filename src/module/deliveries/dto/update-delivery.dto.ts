@@ -1,5 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsMongoId, IsEmail, Matches } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsMongoId,
+  IsEmail,
+  Matches,
+} from 'class-validator';
 
 export class UpdateDeliveryDto {
   @ApiProperty({ description: 'The first name of the delivery agent' })
@@ -20,13 +26,18 @@ export class UpdateDeliveryDto {
   @ApiProperty({ description: 'The phone number of the delivery agent' })
   @IsString()
   @IsOptional()
-  @Matches(/^0\d{10}$/, { message: 'Phone number must be an 11-digit Nigerian number starting with 0' })
+  @Matches(/^0\d{10}$/, {
+    message: 'Phone number must be an 11-digit Nigerian number starting with 0',
+  })
   phoneNumber?: string;
 
   @ApiProperty({ description: 'The extra phone number of the delivery agent' })
   @IsString()
   @IsOptional()
-  @Matches(/^0\d{10}$/, { message: 'Extra phone number must be an 11-digit Nigerian number starting with 0' })
+  @Matches(/^0\d{10}$/, {
+    message:
+      'Extra phone number must be an 11-digit Nigerian number starting with 0',
+  })
   extraPhone?: string;
 
   @ApiProperty({ description: 'The estate of the delivery agent' })
@@ -44,7 +55,9 @@ export class UpdateDeliveryDto {
   @IsOptional()
   state?: string;
 
-  @ApiProperty({ description: 'The local government area (city) of the delivery agent' })
+  @ApiProperty({
+    description: 'The local government area (city) of the delivery agent',
+  })
   @IsString()
   @IsOptional()
   city?: string;

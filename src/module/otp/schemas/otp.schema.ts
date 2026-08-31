@@ -11,7 +11,6 @@ export class OTP {
   @Prop({ required: false }) // remove `unique: true`
   phone?: string;
 
-
   @Prop({ required: true })
   code: number;
 

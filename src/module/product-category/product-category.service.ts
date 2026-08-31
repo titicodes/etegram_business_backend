@@ -5,7 +5,6 @@
 // import { ProductCategory, ProductCategoryDocument } from './schema/product-category.schema';
 // import { ProductCategoriesRepository } from './category.repository';
 
-
 // @Injectable()
 // export class ProductCategoriesService {
 //   constructor(
@@ -58,9 +57,8 @@
 // }
 
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, ClientSession } from 'mongoose'; // Import ClientSession
-import { ProductCategory, ProductCategoryDocument } from './schema/product-category.schema';
+import { ClientSession } from 'mongoose';
+import { ProductCategory } from './schema/product-category.schema';
 import { ProductCategoriesRepository } from './category.repository';
 
 @Injectable()
@@ -79,31 +77,50 @@ export class ProductCategoriesService {
     return category;
   }
 
-  async findOneByName(name: string, session?: ClientSession): Promise<ProductCategory | null> {
+  async findOneByName(
+    name: string,
+    session?: ClientSession,
+  ): Promise<ProductCategory | null> {
     return this.productCategoriesRepo.findOneByName(name, session);
   }
 
-  async create(createCategoryDto: any, session?: ClientSession): Promise<ProductCategory> {
+  async create(
+    createCategoryDto: any,
+    session?: ClientSession,
+  ): Promise<ProductCategory> {
     return this.productCategoriesRepo.create(createCategoryDto, session);
   }
 
   async update(
     id: string,
     updateCategoryDto: any,
-    session?: ClientSession
+    session?: ClientSession,
   ): Promise<ProductCategory | null> {
-    const updatedCategory = await this.productCategoriesRepo.update(id, updateCategoryDto, session);
+    const updatedCategory = await this.productCategoriesRepo.update(
+      id,
+      updateCategoryDto,
+      session,
+    );
     if (!updatedCategory) throw new NotFoundException('Category not found');
     return updatedCategory;
   }
 
-  async remove(id: string, session?: ClientSession): Promise<ProductCategory | null> {
-    const deletedCategory = await this.productCategoriesRepo.remove(id, session);
+  async remove(
+    id: string,
+    session?: ClientSession,
+  ): Promise<ProductCategory | null> {
+    const deletedCategory = await this.productCategoriesRepo.remove(
+      id,
+      session,
+    );
     if (!deletedCategory) throw new NotFoundException('Category not found');
     return deletedCategory;
   }
 
-  async findOrCreate(categoryName: string, session?: ClientSession): Promise<ProductCategory> {
+  async findOrCreate(
+    categoryName: string,
+    session?: ClientSession,
+  ): Promise<ProductCategory> {
     let category = await this.findOneByName(categoryName, session);
     if (!category) {
       category = await this.create({ name: categoryName }, session);

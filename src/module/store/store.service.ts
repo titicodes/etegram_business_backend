@@ -1,6 +1,12 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model } from 'mongoose';
 import { Store, StoreDocument } from './schema/store.schema';
 import { CreateStoreDto } from './dto/create-store.dto';
 import { UpdateStoreDto } from './dto/update-store.dto';
@@ -13,17 +19,24 @@ export class StoreService {
   constructor(
     @InjectModel(Store.name) private readonly storeModel: Model<StoreDocument>,
     private readonly userService: UserService,
-  ) { }
+  ) {}
 
-  async create(dto: CreateStoreDto, ownerId: string): Promise<{ success: boolean; data: Store; message: string }> {
-    this.logger.log(`Creating store for user=${ownerId}, dto=${JSON.stringify(dto)}`);
+  async create(
+    dto: CreateStoreDto,
+    ownerId: string,
+  ): Promise<{ success: boolean; data: Store; message: string }> {
+    this.logger.log(
+      `Creating store for user=${ownerId}, dto=${JSON.stringify(dto)}`,
+    );
 
     try {
       const existingStore = await this.storeModel
         .findOne({ name: dto.name, owner: ownerId })
         .exec();
       if (existingStore) {
-        throw new ConflictException(`Store with name ${dto.name} already exists for this user`);
+        throw new ConflictException(
+          `Store with name ${dto.name} already exists for this user`,
+        );
       }
 
       const [newStore] = await this.storeModel.create([
@@ -36,7 +49,10 @@ export class StoreService {
 
       await this.userService.addStoreToUser(ownerId, newStore._id.toString());
 
-      const fullStore = await this.storeModel.findById(newStore._id).lean().exec();
+      const fullStore = await this.storeModel
+        .findById(newStore._id)
+        .lean()
+        .exec();
       this.logger.log(`Created store id=${newStore._id}`);
       return {
         success: true,
@@ -44,7 +60,10 @@ export class StoreService {
         message: 'Store created successfully',
       };
     } catch (error) {
-      this.logger.error(`Failed to create store: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to create store: ${error.message}`,
+        error.stack,
+      );
       if (error instanceof ConflictException) {
         throw error;
       }
@@ -52,11 +71,19 @@ export class StoreService {
     }
   }
 
-  async createBranch(dto: CreateStoreDto, ownerId: string, parentStoreId: string): Promise<{ success: boolean; data: Store; message: string }> {
-    this.logger.log(`Creating branch for parentStore=${parentStoreId}, user=${ownerId}`);
+  async createBranch(
+    dto: CreateStoreDto,
+    ownerId: string,
+    parentStoreId: string,
+  ): Promise<{ success: boolean; data: Store; message: string }> {
+    this.logger.log(
+      `Creating branch for parentStore=${parentStoreId}, user=${ownerId}`,
+    );
 
     try {
-      const parentStore = await this.storeModel.findOne({ _id: parentStoreId, owner: ownerId }).exec();
+      const parentStore = await this.storeModel
+        .findOne({ _id: parentStoreId, owner: ownerId })
+        .exec();
       if (!parentStore) {
         throw new NotFoundException('Parent store not found');
       }
@@ -65,7 +92,9 @@ export class StoreService {
         .findOne({ name: dto.name, owner: ownerId })
         .exec();
       if (existingStore) {
-        throw new ConflictException(`Store with name ${dto.name} already exists for this user`);
+        throw new ConflictException(
+          `Store with name ${dto.name} already exists for this user`,
+        );
       }
 
       const [newBranch] = await this.storeModel.create([
@@ -79,7 +108,10 @@ export class StoreService {
 
       await this.userService.addStoreToUser(ownerId, newBranch._id.toString());
 
-      const fullBranch = await this.storeModel.findById(newBranch._id).lean().exec();
+      const fullBranch = await this.storeModel
+        .findById(newBranch._id)
+        .lean()
+        .exec();
       this.logger.log(`Created branch id=${newBranch._id}`);
       return {
         success: true,
@@ -87,8 +119,12 @@ export class StoreService {
         message: 'Branch created successfully',
       };
     } catch (error) {
-      this.logger.error(`Failed to create branch: ${error.message}`, error.stack);
-      throw error instanceof ConflictException || error instanceof NotFoundException
+      this.logger.error(
+        `Failed to create branch: ${error.message}`,
+        error.stack,
+      );
+      throw error instanceof ConflictException ||
+        error instanceof NotFoundException
         ? error
         : new BadRequestException('Failed to create branch');
     }
@@ -102,7 +138,10 @@ export class StoreService {
       this.logger.log(`Found ${stores.length} stores`);
       return stores;
     } catch (error) {
-      this.logger.error(`Failed to fetch stores: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to fetch stores: ${error.message}`,
+        error.stack,
+      );
       throw new BadRequestException('Failed to fetch stores');
     }
   }
@@ -111,7 +150,9 @@ export class StoreService {
     this.logger.log(`Fetching store id=${id} for user=${ownerId}`);
 
     try {
-      const store = await this.storeModel.findOne({ _id: id, owner: ownerId }).exec();
+      const store = await this.storeModel
+        .findOne({ _id: id, owner: ownerId })
+        .exec();
       if (!store) {
         throw new NotFoundException('Store not found');
       }
@@ -123,20 +164,24 @@ export class StoreService {
     }
   }
 
-  async update(id: string, dto: UpdateStoreDto, ownerId: string): Promise<Store> {
+  async update(
+    id: string,
+    dto: UpdateStoreDto,
+    ownerId: string,
+  ): Promise<Store> {
     this.logger.log(`Updating store id=${id} for user=${ownerId}`);
 
     try {
-      const store = await this.storeModel.findOne({ _id: id, owner: ownerId }).exec();
+      const store = await this.storeModel
+        .findOne({ _id: id, owner: ownerId })
+        .exec();
       if (!store) {
         throw new NotFoundException('Store not found');
       }
 
-      const updatedStore = await this.storeModel.findByIdAndUpdate(
-        id,
-        { ...dto, updatedAt: new Date() },
-        { new: true },
-      ).exec();
+      const updatedStore = await this.storeModel
+        .findByIdAndUpdate(id, { ...dto, updatedAt: new Date() }, { new: true })
+        .exec();
 
       if (!updatedStore) {
         throw new NotFoundException('Failed to update store');
@@ -145,7 +190,10 @@ export class StoreService {
       this.logger.log(`Updated store id=${id}`);
       return updatedStore;
     } catch (error) {
-      this.logger.error(`Failed to update store: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to update store: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -154,7 +202,9 @@ export class StoreService {
     this.logger.log(`Deleting store id=${id} for user=${ownerId}`);
 
     try {
-      const store = await this.storeModel.findOne({ _id: id, owner: ownerId }).exec();
+      const store = await this.storeModel
+        .findOne({ _id: id, owner: ownerId })
+        .exec();
       if (!store) {
         throw new NotFoundException('Store not found');
       }
@@ -163,7 +213,10 @@ export class StoreService {
       await this.userService.removeStoreFromUser(ownerId, id);
       this.logger.log(`Deleted store id=${id}`);
     } catch (error) {
-      this.logger.error(`Failed to delete store: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to delete store: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }

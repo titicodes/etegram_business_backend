@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { UnitOfMeasure, UnitOfMeasureDocument } from './schema/unit-of-mesure.schema';
+import {
+  UnitOfMeasure,
+  UnitOfMeasureDocument,
+} from './schema/unit-of-mesure.schema';
 import { CreateUnitOfMeasureDto } from './dto/create-unit-of-measure.dto';
 import { UpdateUnitOfMeasureDto } from './dto/update-unit-of-measure.dto';
 

@@ -74,7 +74,6 @@
 //     return otp;
 //   }
 
-
 //   async sendOTP(payload: SendOtpDto) {
 //     const { email, type, phone } = payload;
 //     const code = BaseHelper.generateOTP();
@@ -120,7 +119,6 @@
 //     }
 //   }
 
-
 //   async verifyOTP(payload: VerifyOtpDto) {
 //     this.logger.log(`Verifying OTP for payload: ${JSON.stringify(payload)}`);
 //     const otp = await this.validateOTP(payload);
@@ -134,7 +132,6 @@
 //     return this.otpModel.findByIdAndDelete(id);
 //   }
 // }
-
 
 import {
   Injectable,
@@ -173,14 +170,13 @@ export class OtpService {
   }
 
   async createOTP(payload: CreateOtpDto): Promise<OTPDocument> {
-    const { email, type, code } = payload;
+    const { email, type } = payload;
     this.logger.log(`Generating OTP for email: ${email}`);
 
-    const otp = await this.otpModel.findOneAndUpdate(
-      { email, type },
-      payload,
-      { upsert: true, new: true },
-    );
+    const otp = await this.otpModel.findOneAndUpdate({ email, type }, payload, {
+      upsert: true,
+      new: true,
+    });
 
     this.logger.log(`Created OTP: ${otp.code} for email: ${email}`);
     return otp;
@@ -239,11 +235,12 @@ export class OtpService {
         throw new InternalServerErrorException('Unsupported OTP type');
       }
 
-      await this.mailService.sendTemplatedEmail(email, subject, templateName, { code });
+      await this.mailService.sendTemplatedEmail(email, subject, templateName, {
+        code,
+      });
       this.logger.log(`OTP sent via email to: ${email}`);
     }
   }
-
 
   async verifyOTP(payload: VerifyOtpDto) {
     const otp = await this.validateOTP(payload);

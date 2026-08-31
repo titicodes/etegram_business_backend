@@ -1,5 +1,10 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { IsString, IsNotEmpty, IsOptional, IsDateString } from "class-validator";
+import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsDateString,
+} from 'class-validator';
 
 export class CreateCustomerDto {
   @ApiProperty({ description: 'The business name of the supplier' })
@@ -57,7 +62,10 @@ export class CreateCustomerDto {
   @IsOptional()
   extraPhone: string;
 
-  @ApiProperty({ description: 'The business type of the supplier', required: false })
+  @ApiProperty({
+    description: 'The business type of the supplier',
+    required: false,
+  })
   @IsString()
   @IsOptional()
   supplierType: string;

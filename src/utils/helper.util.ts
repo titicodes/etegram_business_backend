@@ -1,8 +1,10 @@
 import { randomBytes, createCipheriv, createDecipheriv } from 'crypto';
 import * as bcrypt from 'bcryptjs';
+import { Logger } from '@nestjs/common';
 import { ENVIRONMENT } from 'src/common/config/environment';
 
 const encryptionKeyFromEnv = ENVIRONMENT.APP.ENCRYPTION_KEY;
+const logger = new Logger('BaseHelper');
 
 export class BaseHelper {
   static generateRandomString(length = 6) {
@@ -13,14 +15,15 @@ export class BaseHelper {
     return bcrypt.hash(data, 12);
   }
 
-
-  static async compareHashedData(data: string, hashed: string): Promise<boolean> {
+  static async compareHashedData(
+    data: string,
+    hashed: string,
+  ): Promise<boolean> {
     try {
       const result = await bcrypt.compare(data, hashed);
-      console.log("bcrypt compare result:", result);
       return result;
     } catch (error) {
-      console.error("bcrypt compare error: ", error);
+      logger.error('bcrypt compare error: ', error.stack);
       return false;
     }
   }
@@ -83,7 +86,9 @@ export class BaseHelper {
     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let result = '';
     for (let i = 0; i < length; i++) {
-      result += characters.charAt(Math.floor(Math.random() * characters.length));
+      result += characters.charAt(
+        Math.floor(Math.random() * characters.length),
+      );
     }
     return result;
   }

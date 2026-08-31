@@ -19,10 +19,10 @@ import { UserModule } from '../user/user.module';
     NotificationModule,
     EmailModule,
     FirebaseModule,
-    UserModule
+    UserModule,
   ],
   controllers: [CheckoutController],
   providers: [CheckoutService, InvoiceService],
-  exports:[CheckoutService]
+  exports: [CheckoutService],
 })
 export class CheckoutModule {}

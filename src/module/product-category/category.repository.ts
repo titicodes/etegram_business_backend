@@ -40,7 +40,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, ClientSession } from 'mongoose';
-import { ProductCategory, ProductCategoryDocument } from './schema/product-category.schema';
+import {
+  ProductCategory,
+  ProductCategoryDocument,
+} from './schema/product-category.schema';
 
 @Injectable()
 export class ProductCategoriesRepository {
@@ -53,27 +56,46 @@ export class ProductCategoriesRepository {
     return this.productCategoryModel.find().exec();
   }
 
-  async findOne(id: string, session?: ClientSession): Promise<ProductCategory | null> {
+  async findOne(
+    id: string,
+    session?: ClientSession,
+  ): Promise<ProductCategory | null> {
     return this.productCategoryModel.findById(id).session(session).exec();
   }
 
-  async findOneByName(name: string, session?: ClientSession): Promise<ProductCategory | null> {
+  async findOneByName(
+    name: string,
+    session?: ClientSession,
+  ): Promise<ProductCategory | null> {
     return this.productCategoryModel.findOne({ name }).session(session).exec();
   }
 
-  async create(createCategoryDto: any, session?: ClientSession): Promise<ProductCategory> {
+  async create(
+    createCategoryDto: any,
+    session?: ClientSession,
+  ): Promise<ProductCategory> {
     const category = new this.productCategoryModel(createCategoryDto);
     return category.save({ session });
   }
 
-  async update(id: string, updateCategoryDto: any, session?: ClientSession): Promise<ProductCategory | null> {
+  async update(
+    id: string,
+    updateCategoryDto: any,
+    session?: ClientSession,
+  ): Promise<ProductCategory | null> {
     return this.productCategoryModel
       .findByIdAndUpdate(id, updateCategoryDto, { new: true })
       .session(session)
       .exec();
   }
 
-  async remove(id: string, session?: ClientSession): Promise<ProductCategory | null> {
-    return this.productCategoryModel.findByIdAndDelete(id).session(session).exec();
+  async remove(
+    id: string,
+    session?: ClientSession,
+  ): Promise<ProductCategory | null> {
+    return this.productCategoryModel
+      .findByIdAndDelete(id)
+      .session(session)
+      .exec();
   }
 }

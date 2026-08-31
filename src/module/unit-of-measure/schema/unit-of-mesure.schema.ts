@@ -12,7 +12,7 @@ export class UnitOfMeasure {
   baseUnit: string;
 
   @Prop()
-  conversionFactor: number; 
+  conversionFactor: number;
 }
 
 export const UnitOfMeasureSchema = SchemaFactory.createForClass(UnitOfMeasure);

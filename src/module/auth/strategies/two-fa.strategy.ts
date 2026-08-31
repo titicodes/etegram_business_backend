@@ -6,7 +6,6 @@
 // import { TokenPayload } from 'src/module/user/token.payload';
 // import { UserService } from 'src/module/user/user.service';
 
-
 // @Injectable()
 // export class JwtTwoFactorStrategy extends PassportStrategy(
 //     Strategy,

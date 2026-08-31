@@ -32,8 +32,6 @@
 //         this.logger.log('✅ Brevo EmailService initialized successfully');
 //     }
 
-
-
 //     private async compileTemplate(templateName: string, data: Record<string, any>): Promise<string> {
 //         try {
 //             const filePath = path.join(process.cwd(), 'src', 'templates', `${templateName}.hbs`);
@@ -45,7 +43,6 @@
 //             throw new Error(`Template compilation error: ${templateName}`);
 //         }
 //     }
-
 
 //     async sendTemplatedEmail(
 //   to: string,
@@ -111,8 +108,7 @@
 //     }
 // }
 
-
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import * as SibApiV3Sdk from 'sib-api-v3-sdk';
 import * as handlebars from 'handlebars';
 import * as fs from 'fs-extra';
@@ -133,7 +129,9 @@ export class EmailService {
     const defaultClient = SibApiV3Sdk.ApiClient.instance;
     const apiKeyAuth = defaultClient.authentications['api-key'];
     if (!apiKeyAuth) {
-      throw new Error('❌ Brevo SDK client does not expose api-key authentication');
+      throw new Error(
+        '❌ Brevo SDK client does not expose api-key authentication',
+      );
     }
 
     apiKeyAuth.apiKey = apiKey;
@@ -142,9 +140,17 @@ export class EmailService {
     this.logger.log('✅ Brevo EmailService initialized successfully');
   }
 
-  private async compileTemplate(templateName: string, data: Record<string, any>): Promise<string> {
+  private async compileTemplate(
+    templateName: string,
+    data: Record<string, any>,
+  ): Promise<string> {
     try {
-      const filePath = path.join(process.cwd(), 'src', 'templates', `${templateName}.hbs`);
+      const filePath = path.join(
+        process.cwd(),
+        'src',
+        'templates',
+        `${templateName}.hbs`,
+      );
       const templateContent = await fs.readFile(filePath, 'utf8');
       const template = handlebars.compile(templateContent);
       return template(data);
@@ -159,7 +165,7 @@ export class EmailService {
     subject: string,
     templateName: string,
     data: Record<string, any>,
-    attachments?: { name: string; path: string }[]
+    attachments?: { name: string; path: string }[],
   ): Promise<void> {
     try {
       const htmlContent = await this.compileTemplate(templateName, data);
@@ -179,21 +185,24 @@ export class EmailService {
       };
 
       const result = await this.brevoClient.sendTransacEmail(sendSmtpEmail);
-      this.logger.log(`📧 Custom template email sent to ${to}: ${result?.messageId || 'No ID'}`);
-    } catch (error: any) {
-      this.logger.error(
-        `❌ Failed to send custom email with Brevo to ${to}:`,
-        {
-          error: error?.response?.body || error.message,
-          status: error?.response?.status,
-          headers: error?.response?.headers,
-        }
+      this.logger.log(
+        `📧 Custom template email sent to ${to}: ${result?.messageId || 'No ID'}`,
       );
+    } catch (error: any) {
+      this.logger.error(`❌ Failed to send custom email with Brevo to ${to}:`, {
+        error: error?.response?.body || error.message,
+        status: error?.response?.status,
+        headers: error?.response?.headers,
+      });
       throw new Error('Email sending failed');
     }
   }
 
-  async sendInvoice(to: string, invoicePath: string, orderData: Record<string, any>): Promise<void> {
+  async sendInvoice(
+    to: string,
+    invoicePath: string,
+    orderData: Record<string, any>,
+  ): Promise<void> {
     try {
       // Format numbers for the template
       const formattedOrderData = {
@@ -210,9 +219,11 @@ export class EmailService {
         `Your Order Invoice #${orderData.orderId}`,
         'order-confirmation',
         formattedOrderData,
-        [{ name: `Invoice_${orderData.orderId}.pdf`, path: invoicePath }]
+        [{ name: `Invoice_${orderData.orderId}.pdf`, path: invoicePath }],
       );
-      this.logger.log(`📧 Invoice email sent to ${to} for order ${orderData.orderId}`);
+      this.logger.log(
+        `📧 Invoice email sent to ${to} for order ${orderData.orderId}`,
+      );
     } catch (error) {
       this.logger.error(`❌ Failed to send invoice email to ${to}:`, error);
       throw new Error('Invoice email sending failed');

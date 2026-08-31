@@ -1,5 +1,13 @@
-import { Type } from 'class-transformer';
-import { IsNotEmpty, IsArray, IsNumber, IsOptional, IsEnum, IsString, ValidateNested, Min, IsMongoId } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsArray,
+  IsNumber,
+  IsOptional,
+  IsEnum,
+  IsString,
+  Min,
+  IsMongoId,
+} from 'class-validator';
 
 export class ScanProductDto {
   @IsString()
@@ -13,7 +21,6 @@ export class ScanProductDto {
   @IsNotEmpty()
   storeId: string;
 }
-
 
 enum PaymentMethod {
   CASH = 'CASH',
@@ -47,7 +54,6 @@ export class CreateCheckoutDto {
 
   @IsOptional()
   @IsString()
-
   size?: number;
 
   @IsOptional()
@@ -66,13 +72,11 @@ export class CreateCheckoutDto {
   deliveryAddress?: string;
 }
 
-
 export class UpdateOrderStatusDto {
   @IsNotEmpty()
   @IsEnum(['Processing', 'Completed'])
   status: 'Processing' | 'Completed';
 }
-
 
 export class CheckProductDto {
   @IsString()

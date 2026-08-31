@@ -1,4 +1,15 @@
-import { Controller, Post, Get, Put, Delete, Body, Param, Request, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Request,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
 import { DeliveriesService } from './deliveries.service';
 import { CreateDeliveryDto } from './dto/delivery.dto';
 import { UpdateDeliveryDto } from './dto/update-delivery.dto';
@@ -12,13 +23,22 @@ export class DeliveriesController {
   @UseGuards(JwtAuthGuard)
   @Post('agent')
   createAgent(@Body() createDeliveryDto: CreateDeliveryDto, @Request() req) {
-    return this.deliveryService.createDeliveryAgent(createDeliveryDto, req.user);
+    return this.deliveryService.createDeliveryAgent(
+      createDeliveryDto,
+      req.user,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
   @Post('transaction')
-  createTransaction(@Body() createDeliveryTransactionDto: CreateDeliveryTransactionDto, @Request() req) {
-    return this.deliveryService.createDeliveryTransaction(createDeliveryTransactionDto, req.user);
+  createTransaction(
+    @Body() createDeliveryTransactionDto: CreateDeliveryTransactionDto,
+    @Request() req,
+  ) {
+    return this.deliveryService.createDeliveryTransaction(
+      createDeliveryTransactionDto,
+      req.user,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -47,8 +67,16 @@ export class DeliveriesController {
 
   @UseGuards(JwtAuthGuard)
   @Put('agent/:id')
-  updateAgent(@Param('id') id: string, @Body() updateDeliveryDto: UpdateDeliveryDto, @Request() req) {
-    return this.deliveryService.updateDeliveryAgent(id, updateDeliveryDto, req.user);
+  updateAgent(
+    @Param('id') id: string,
+    @Body() updateDeliveryDto: UpdateDeliveryDto,
+    @Request() req,
+  ) {
+    return this.deliveryService.updateDeliveryAgent(
+      id,
+      updateDeliveryDto,
+      req.user,
+    );
   }
 
   @UseGuards(JwtAuthGuard)

@@ -3,15 +3,16 @@ import { AppModule } from './app.module';
 import helmet from 'helmet';
 import * as express from 'express';
 
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { ResponseTransformerInterceptor } from './common/interceptors/response.interceptor';
 import { HttpExceptionFilter } from './common/filter/filter';
 import { ENVIRONMENT } from './common/config/environment';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
+const logger = new Logger('Bootstrap');
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-
 
   // CORS setup
   app.enableCors({
@@ -82,10 +83,8 @@ async function bootstrap() {
     },
   });
 
-
   // Start the server
   await app.listen(process.env.PORT || 3000, '0.0.0.0');
-  console.log(`Server running on: http://0.0.0.0:${ENVIRONMENT.APP.PORT}`);
-  console.log('JWT Secret (Application Startup):', process.env.JWT_SECRET);
+  logger.log(`Server running on: http://0.0.0.0:${ENVIRONMENT.APP.PORT}`);
 }
 bootstrap();

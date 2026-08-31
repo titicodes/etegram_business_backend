@@ -1,15 +1,9 @@
-
 import { Module } from '@nestjs/common';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { MailService } from './mail.service';
-import { MailController } from './mail.controller';
-import { ENVIRONMENT } from 'src/common/config/environment';
-import { debug } from 'console';
-import { logger } from 'env-var';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { join } from 'path';
-
 
 @Module({
   imports: [

@@ -7,10 +7,12 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { Notification, NotificationSchema } from './schema/notification.schem';
 import { User, UserSchema } from '../user/schema/user.schema';
 
-
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Notification.name, schema: NotificationSchema }, { name: User.name, schema: UserSchema }]),
+    MongooseModule.forFeature([
+      { name: Notification.name, schema: NotificationSchema },
+      { name: User.name, schema: UserSchema },
+    ]),
     FirebaseModule,
     forwardRef(() => UserModule),
   ],
@@ -18,4 +20,4 @@ import { User, UserSchema } from '../user/schema/user.schema';
   controllers: [NotificationController],
   exports: [NotificationService],
 })
-export class NotificationModule { }
+export class NotificationModule {}

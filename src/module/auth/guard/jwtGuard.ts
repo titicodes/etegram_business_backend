@@ -1,16 +1,23 @@
-import { Injectable, CanActivate, ExecutionContext } from "@nestjs/common";
-import { JwtService } from "@nestjs/jwt";
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  Logger,
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor(private jwtService: JwtService) { }
+  private readonly logger = new Logger(JwtAuthGuard.name);
+
+  constructor(private jwtService: JwtService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const token = this.extractTokenFromHeader(request);
 
     if (!token) {
-      console.warn('No token found in request');
+      this.logger.warn('No token found in request');
       return false;
     }
 
@@ -19,13 +26,11 @@ export class JwtAuthGuard implements CanActivate {
         secret: process.env.JWT_SECRET,
       });
 
-      console.log('JWT Payload:', payload);
-
       request['user'] = payload; // Attach payload to request
 
       return true;
     } catch (error) {
-      console.error('JWT Verification Error:', error);
+      this.logger.error('JWT Verification Error:', error.stack);
       return false;
     }
   }

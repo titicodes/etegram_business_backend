@@ -1,2 +1,2 @@
-export * from "./ErrorCode";
-export * from "./LendsqrError";
+export * from './ErrorCode';
+export * from './LendsqrError';

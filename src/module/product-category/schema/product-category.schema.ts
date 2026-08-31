@@ -5,7 +5,8 @@ import { Document } from 'mongoose';
 export type ProductCategoryDocument = ProductCategory & Document;
 
 @Schema()
-export class ProductCategory extends Document { // Extend Document here
+export class ProductCategory extends Document {
+  // Extend Document here
   @Prop()
   categoryName: string;
 

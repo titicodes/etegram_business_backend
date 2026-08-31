@@ -1,16 +1,20 @@
-import { FilterQuery, QueryOptions, UpdateQuery } from "mongoose";
-import { CoreRepository } from "./repository";
-import { NotFoundException } from "@nestjs/common";
+import { FilterQuery, QueryOptions, UpdateQuery } from 'mongoose';
+import { CoreRepository } from './repository';
+import { Logger, NotFoundException } from '@nestjs/common';
 import { Document } from 'mongoose';
 
-export abstract class CoreService<T extends CoreRepository<any>, D = any> { // Added D for data type
+export abstract class CoreService<T extends CoreRepository<any>, D = any> {
+  // Added D for data type
+  private readonly logger = new Logger(CoreService.name);
+
   constructor(protected readonly respository: T) {}
 
-  async create(data: D): Promise<any> { // Use D for data type
+  async create(data: D): Promise<any> {
+    // Use D for data type
     try {
       return await this.respository.create(data);
     } catch (error) {
-      console.error("Error creating document:", error);
+      this.logger.error('Error creating document:', error);
       throw error;
     }
   }
@@ -19,7 +23,8 @@ export abstract class CoreService<T extends CoreRepository<any>, D = any> { // A
     entityFilterQuery: FilterQuery<T>,
     projection?: Record<string, unknown>,
     options?: QueryOptions,
-  ): Promise<any | null> { // Explicit return type
+  ): Promise<any | null> {
+    // Explicit return type
     try {
       return await this.respository.findOne(
         entityFilterQuery,
@@ -27,7 +32,7 @@ export abstract class CoreService<T extends CoreRepository<any>, D = any> { // A
         options,
       );
     } catch (error) {
-      console.error("Error finding document:", error);
+      this.logger.error('Error finding document:', error);
       return null;
     }
   }
@@ -36,11 +41,16 @@ export abstract class CoreService<T extends CoreRepository<any>, D = any> { // A
     entityFilterQuery: FilterQuery<T>,
     projection?: Record<string, unknown>,
     options?: QueryOptions,
-  ): Promise<any[]> { // Explicit return type
+  ): Promise<any[]> {
+    // Explicit return type
     try {
-      return await this.respository.find(entityFilterQuery, projection, options);
+      return await this.respository.find(
+        entityFilterQuery,
+        projection,
+        options,
+      );
     } catch (error) {
-      console.error("Error finding documents:", error);
+      this.logger.error('Error finding documents:', error);
       throw error;
     }
   }
@@ -49,7 +59,8 @@ export abstract class CoreService<T extends CoreRepository<any>, D = any> { // A
     id: string,
     data: UpdateQuery<T>,
     options: QueryOptions = {},
-  ): Promise<any> { // Explicit return type
+  ): Promise<any> {
+    // Explicit return type
     try {
       const updatedDocument = await this.respository.findOneAndUpdate(
         { _id: id },
@@ -61,12 +72,14 @@ export abstract class CoreService<T extends CoreRepository<any>, D = any> { // A
       }
       return updatedDocument;
     } catch (error) {
-      console.error("Error updating document:", error);
+      this.logger.error('Error updating document:', error);
       throw error;
     }
   }
 
-  async deleteOne(filterQuery: FilterQuery<T>): Promise<{ deletedCount: number }> {
+  async deleteOne(
+    filterQuery: FilterQuery<T>,
+  ): Promise<{ deletedCount: number }> {
     try {
       const result = await this.respository.deleteOne(filterQuery);
       if (result.deletedCount === 0) {
@@ -74,7 +87,7 @@ export abstract class CoreService<T extends CoreRepository<any>, D = any> { // A
       }
       return result;
     } catch (error) {
-      console.error("Error deleting document:", error);
+      this.logger.error('Error deleting document:', error);
       throw error;
     }
   }
@@ -83,7 +96,8 @@ export abstract class CoreService<T extends CoreRepository<any>, D = any> { // A
     filterQuery: FilterQuery<T>,
     page: number,
     limit: number,
-  ): Promise<{ list: any[]; pagination: Record<string, any> }> { // Explicit return type
+  ): Promise<{ list: any[]; pagination: Record<string, any> }> {
+    // Explicit return type
     try {
       const skip = (page - 1) * limit;
 
@@ -102,7 +116,7 @@ export abstract class CoreService<T extends CoreRepository<any>, D = any> { // A
         },
       };
     } catch (error) {
-      console.error("Error paginating documents:", error);
+      this.logger.error('Error paginating documents:', error);
       throw error;
     }
   }
@@ -116,7 +130,7 @@ export abstract class CoreService<T extends CoreRepository<any>, D = any> { // A
         return dateB - dateA;
       });
     } catch (error) {
-      console.error("Error listing documents:", error);
+      this.logger.error('Error listing documents:', error);
       throw error;
     }
   }
@@ -130,7 +144,7 @@ export abstract class CoreService<T extends CoreRepository<any>, D = any> { // A
       const filter: FilterQuery<Document> = { _id: transactionId };
       return await this.respository.updateTransaction(filter, update, options);
     } catch (error) {
-      console.error("Error updating transaction:", error);
+      this.logger.error('Error updating transaction:', error);
       return null;
     }
   }

@@ -8,13 +8,11 @@ import {
   Query,
   Req,
   UseGuards,
-  ParseUUIDPipe,
   BadRequestException,
 } from '@nestjs/common';
 import { CreateSupplyDto } from './dto/supply.dto';
 import { UpdateSupplierDto } from './dto/update-supply.dto';
 import { UserDocument } from '../user/schema/user.schema';
-import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guard/jwtGuard';
 import { SupplierService } from './supply.service';
 

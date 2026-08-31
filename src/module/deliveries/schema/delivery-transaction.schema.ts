@@ -26,9 +26,13 @@ export class DeliveryTransaction {
   @Prop({ default: '' })
   notes: string;
 
-  @Prop({ enum: ['PENDING', 'DELIVERED', 'CANCELLED', 'RECEIVED'], default: 'PENDING' })
+  @Prop({
+    enum: ['PENDING', 'DELIVERED', 'CANCELLED', 'RECEIVED'],
+    default: 'PENDING',
+  })
   status: string;
 }
 
 export type DeliveryTransactionDocument = DeliveryTransaction & Document;
-export const DeliveryTransactionSchema = SchemaFactory.createForClass(DeliveryTransaction);
+export const DeliveryTransactionSchema =
+  SchemaFactory.createForClass(DeliveryTransaction);

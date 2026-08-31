@@ -11,16 +11,18 @@ import { StoreModule } from '../store/store.module';
 import { CheckoutModule } from '../checkout/checkout.module';
 
 @Module({
-   imports:[
-     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }, { name: Store.name, schema: StoreSchema }]),
-        UserModule,
-        ProductModule,
-        SubscriptionModule,
-        StoreModule,
-        CheckoutModule
-
-   ],
-   controllers:[AdminController],
-   providers:[AdminService] 
+  imports: [
+    MongooseModule.forFeature([
+      { name: User.name, schema: UserSchema },
+      { name: Store.name, schema: StoreSchema },
+    ]),
+    UserModule,
+    ProductModule,
+    SubscriptionModule,
+    StoreModule,
+    CheckoutModule,
+  ],
+  controllers: [AdminController],
+  providers: [AdminService],
 })
 export class AdminModule {}

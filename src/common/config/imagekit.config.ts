@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const ImageKit = require('imagekit');
 
 export const imagekit = new ImageKit({

@@ -34,7 +34,11 @@ export class Checkout {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   user: Types.ObjectId;
 
-  @Prop({ type: String, enum: ['Pending', 'Processing', 'Completed'], default: 'Pending' })
+  @Prop({
+    type: String,
+    enum: ['Pending', 'Processing', 'Completed'],
+    default: 'Pending',
+  })
   status: string;
 
   @Prop({ required: true })
